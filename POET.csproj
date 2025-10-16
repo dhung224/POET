@@ -22,7 +22,6 @@
     <Folder Include="Helper\" />
     <Folder Include="Migrations\" />
     <Folder Include="Models\Domain\" />
-    <Folder Include="Services\" />
     <Folder Include="Views\Admin\" />
     <Folder Include="Views\Classrooms\" />
     <Folder Include="Views\Home\" />
