@@ -25,6 +25,9 @@
     <Folder Include="Views\Admin\" />
     <Folder Include="Views\Classrooms\" />
     <Folder Include="Views\Home\" />
+    <Folder Include="Views\Admin\" />
+    <Folder Include="Views\Home\" />
+    <Folder Include="Views\Teacher\" />
     <Folder Include="Views\Student\" />
     <Folder Include="Views\Teacher\" />
   </ItemGroup>
