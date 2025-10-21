@@ -2,6 +2,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
+
 using POETWeb.Data;
 using POETWeb.Models;
 using POETWeb.Models.Domain;
@@ -230,6 +233,39 @@ namespace POETWeb.Controllers
             ViewBag.ClassId = classId;
             ViewBag.ClassName = cls.Name;
             return View();
+        }
+
+        //Danh sách học viên cho STUDENT xemm
+        [Authorize(Roles = "Student")]
+        public async Task<IActionResult> RosterStudent(int id)
+        {
+            var me = await _userManager.GetUserAsync(User);
+
+            bool joined = await _db.Enrollments.AnyAsync(e => e.ClassId == id && e.UserId == me!.Id);
+            if (!joined) return Forbid();
+
+            var cls = await _db.Classrooms.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
+            if (cls == null) return NotFound();
+
+            var q = from e in _db.Enrollments
+                    join u in _db.Users on e.UserId equals u.Id
+                    where e.ClassId == id
+                    orderby u.FullName
+                    select new
+                    {
+                        u.FullName,
+                        u.Email,
+                        u.PhoneNumber,
+                        u.AccountCode,
+                        u.AvatarUrl,
+                        e.JoinedAt
+                    };
+
+            var list = await q.AsNoTracking().ToListAsync();
+            ViewBag.ClassId = cls.Id;
+            ViewBag.ClassName = cls.Name;
+            ViewBag.ClassCode = cls.ClassCode;
+            return View(list);
         }
 
         // helper
