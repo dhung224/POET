@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
+using Microsoft.EntityFrameworkCore;
 using POETWeb.Data;
 using POETWeb.Models;
 using POETWeb.Models.Domain;
+using POETWeb.Helpers;
 
 namespace POETWeb.Controllers
 {
@@ -230,5 +231,15 @@ namespace POETWeb.Controllers
             ViewBag.ClassName = cls.Name;
             return View();
         }
+
+        // helper
+        private async Task EnsureOwnerAsync(string teacherId)
+        {
+            var me = await _userManager.GetUserAsync(User);
+            if (me!.Id != teacherId) throw new UnauthorizedAccessException("Not your class.");
+        }
     }
+
+
+
 }
