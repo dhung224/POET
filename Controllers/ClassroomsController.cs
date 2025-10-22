@@ -2,16 +2,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
-
 using POETWeb.Data;
+using POETWeb.Helpers;
 using POETWeb.Models;
 using POETWeb.Models.Domain;
-using POETWeb.Helpers;
 
 namespace POETWeb.Controllers
 {
+
     [Authorize]
     public class ClassroomsController : Controller
     {
@@ -183,6 +181,10 @@ namespace POETWeb.Controllers
 
         // ===== STUDENT ZONE =====
 
+        // Form nhập mã lớp
+        [Authorize(Roles = "Student")]
+        public IActionResult Join() => View();
+
         // Xử lý join
         [HttpPost, ValidateAntiForgeryToken]
         [Authorize(Roles = "Student")]
@@ -268,6 +270,8 @@ namespace POETWeb.Controllers
             return View(list);
         }
 
+
+
         // helper
         private async Task EnsureOwnerAsync(string teacherId)
         {
@@ -275,7 +279,4 @@ namespace POETWeb.Controllers
             if (me!.Id != teacherId) throw new UnauthorizedAccessException("Not your class.");
         }
     }
-
-
-
 }
