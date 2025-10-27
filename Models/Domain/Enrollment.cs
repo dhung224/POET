@@ -20,5 +20,15 @@ namespace POETWeb.Models.Domain
         public string RoleInClass { get; set; } = "Student";
 
         public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+
+        
+        [NotMapped] 
+        public int DaysInClass
+        {
+            get
+            {
+                return (int)(DateTime.UtcNow - JoinedAt).TotalDays;
+            }
+        }
     }
 }
