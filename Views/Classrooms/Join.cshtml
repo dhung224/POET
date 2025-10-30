@@ -8,7 +8,7 @@
 
     <div class="mb-3">
         <label class="form-label">Class Code</label>
-        <input name="code" class="form-control" maxlength="6" />
+        <input id="classCode" name="code" class="form-control" maxlength="6" />
         <div class="form-text">Enter the 6-character class code.</div>
     </div>
 
@@ -18,5 +18,19 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-}
 
+    <!--Thêm đoạn này ở cuối -->
+    <script>
+        document.querySelector("form").addEventListener("submit", function (e) {
+            const code = document.getElementById("classCode").value.trim();
+
+            if (code === "") {
+                alert("Please enter a class code.");
+                e.preventDefault();
+            } else if (code.length !== 6) {
+                alert("Class code must be exactly 6 characters.");
+                e.preventDefault();
+            }
+        });
+    </script>
+}
