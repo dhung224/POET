@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
-//test resend email confirmation
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -53,14 +52,12 @@ namespace POETWeb.Areas.Identity.Pages.Account
 
             var user = await _userManager.FindByEmailAsync(Input.Email);
 
-            // 1) Email chưa đăng ký
             if (user == null)
             {
                 StatusMessage = "This Email is not yet registered.";
                 return Page();
             }
 
-            // 2) Email đã xác nhận
             if (await _userManager.IsEmailConfirmedAsync(user))
             {
                 StatusMessage = "This email is already confirmed.";
