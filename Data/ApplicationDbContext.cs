@@ -47,6 +47,92 @@ namespace POETWeb.Data
                 b.Property(e => e.RoleInClass).HasMaxLength(30);
             });
 
+            // ================== ASSIGNMENT CORE ==================
+            builder.Entity<Assignment>(b =>
+            {
+                b.Property(x => x.Title).HasMaxLength(160).IsRequired();
+                b.Property(x => x.Description).HasMaxLength(400);
+                b.Property(x => x.DurationMinutes).HasDefaultValue(30);
+                b.Property(x => x.MaxAttempts).HasDefaultValue(1);
+
+                b.HasOne(x => x.Class)
+                 .WithMany()
+                 .HasForeignKey(x => x.ClassId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(x => x.CreatedBy)
+                 .WithMany()
+                 .HasForeignKey(x => x.CreatedById)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasIndex(x => new { x.ClassId, x.Title });
+            });
+
+            builder.Entity<AssignmentQuestion>(b =>
+            {
+                b.Property(x => x.Prompt).HasMaxLength(1000).IsRequired();
+                b.Property(x => x.Points).HasPrecision(6, 2); // decimal(6,2)
+
+                b.HasOne(x => x.Assignment)
+                 .WithMany(a => a.Questions)
+                 .HasForeignKey(x => x.AssignmentId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<AssignmentChoice>(b =>
+            {
+                b.Property(x => x.Text).HasMaxLength(400).IsRequired();
+
+                b.HasOne(x => x.Question)
+                 .WithMany(q => q.Choices)
+                 .HasForeignKey(x => x.QuestionId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ================== ATTEMPT / ANSWER ==================
+            builder.Entity<AssignmentAttempt>(b =>
+            {
+                b.Property(x => x.DurationMinutes).HasDefaultValue(30);
+                b.Property(x => x.RequiresManualGrading).HasDefaultValue(false);
+
+                b.Property(x => x.MaxScore).HasPrecision(10, 2);   // decimal(10,2)
+                b.Property(x => x.AutoScore).HasPrecision(10, 2);  // decimal(10,2)
+                b.Property(x => x.FinalScore).HasPrecision(10, 2); // decimal(10,2)
+
+                b.HasOne(x => x.Assignment)
+                 .WithMany(a => a.Attempts)
+                 .HasForeignKey(x => x.AssignmentId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasIndex(x => new { x.AssignmentId, x.UserId, x.AttemptNumber }).IsUnique();
+            });
+
+            builder.Entity<AssignmentAnswer>(b =>
+            {
+                b.Property(x => x.TextAnswer).HasMaxLength(8000);
+                b.Property(x => x.PointsAwarded).HasPrecision(10, 2); // decimal(10,2)
+
+                b.HasOne(x => x.Attempt)
+                 .WithMany(a => a.Answers)
+                 .HasForeignKey(x => x.AttemptId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(x => x.Question)
+                 .WithMany()
+                 .HasForeignKey(x => x.QuestionId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(x => x.SelectedChoice)
+                 .WithMany()
+                 .HasForeignKey(x => x.SelectedChoiceId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
         }
 
     }
