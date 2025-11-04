@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using POETWeb.Models;
 using POETWeb.Models.Domain;
-// tét 
+using POETWeb.Models;
 
 namespace POETWeb.Data
 {
@@ -15,11 +14,18 @@ namespace POETWeb.Data
 
         public DbSet<Classroom> Classrooms => Set<Classroom>();
         public DbSet<Enrollment> Enrollments => Set<Enrollment>();
+        public DbSet<Material> Materials { get; set; } = default!;
+        public DbSet<Assignment> Assignments => Set<Assignment>();
+        public DbSet<AssignmentQuestion> AssignmentQuestions => Set<AssignmentQuestion>();
+        public DbSet<AssignmentChoice> AssignmentChoices => Set<AssignmentChoice>();
+        public DbSet<AssignmentAttempt> AssignmentAttempts => Set<AssignmentAttempt>();
+        public DbSet<AssignmentAnswer> AssignmentAnswers => Set<AssignmentAnswer>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
+            // ================== USER / CLASSROOM / ENROLLMENT ==================
             builder.Entity<ApplicationUser>(b =>
             {
                 b.Property(u => u.AccountCode).HasMaxLength(8);
@@ -34,10 +40,10 @@ namespace POETWeb.Data
                 b.HasIndex(c => c.ClassCode).IsUnique();
             });
 
-            // Enrollment: 1 user chỉ có 1 dòng trong 1 lớp
             builder.Entity<Enrollment>(b =>
             {
                 b.HasKey(e => e.Id);
+
                 b.HasOne(e => e.Classroom)
                  .WithMany(c => c.Enrollments)
                  .HasForeignKey(e => e.ClassId)
@@ -98,6 +104,7 @@ namespace POETWeb.Data
                 b.Property(x => x.MaxScore).HasPrecision(10, 2);   // decimal(10,2)
                 b.Property(x => x.AutoScore).HasPrecision(10, 2);  // decimal(10,2)
                 b.Property(x => x.FinalScore).HasPrecision(10, 2); // decimal(10,2)
+                b.Property(x => x.TeacherComment).HasMaxLength(8000);
 
                 b.HasOne(x => x.Assignment)
                  .WithMany(a => a.Attempts)
@@ -116,6 +123,7 @@ namespace POETWeb.Data
             {
                 b.Property(x => x.TextAnswer).HasMaxLength(8000);
                 b.Property(x => x.PointsAwarded).HasPrecision(10, 2); // decimal(10,2)
+                b.Property(x => x.TeacherComment).HasMaxLength(8000);
 
                 b.HasOne(x => x.Attempt)
                  .WithMany(a => a.Answers)
@@ -132,8 +140,6 @@ namespace POETWeb.Data
                  .HasForeignKey(x => x.SelectedChoiceId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
-
         }
-
     }
 }
