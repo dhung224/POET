@@ -1,4 +1,4 @@
-﻿namespace POET.Models.ViewModels
+﻿namespace POETWeb.Models.ViewModels
 {
     public class StudentClassCardVM
     {
