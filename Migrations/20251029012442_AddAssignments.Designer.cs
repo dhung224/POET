@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using POETWeb.Data;
 
@@ -11,9 +12,11 @@ using POETWeb.Data;
 namespace POETWeb.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251029012442_AddAssignments")]
+    partial class AddAssignments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -307,22 +310,19 @@ namespace POETWeb.Migrations
                     b.Property<int>("AttemptId")
                         .HasColumnType("int");
 
-                    b.Property<bool?>("IsCorrect")
-                        .HasColumnType("bit");
+                    b.Property<double?>("AutoScore")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("float(6)");
 
-                    b.Property<decimal?>("PointsAwarded")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                    b.Property<double?>("ManualScore")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("float(6)");
 
                     b.Property<int>("QuestionId")
                         .HasColumnType("int");
 
                     b.Property<int?>("SelectedChoiceId")
                         .HasColumnType("int");
-
-                    b.Property<string>("TeacherComment")
-                        .HasMaxLength(8000)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TextAnswer")
                         .HasMaxLength(8000)
@@ -353,27 +353,9 @@ namespace POETWeb.Migrations
                     b.Property<int>("AttemptNumber")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("AutoScore")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int>("DurationMinutes")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(30);
-
-                    b.Property<decimal?>("FinalScore")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<decimal>("MaxScore")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<bool>("RequiresManualGrading")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                    b.Property<double?>("Score")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("float(8)");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("datetimeoffset");
@@ -383,10 +365,6 @@ namespace POETWeb.Migrations
 
                     b.Property<DateTimeOffset?>("SubmittedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("TeacherComment")
-                        .HasMaxLength(8000)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -445,9 +423,9 @@ namespace POETWeb.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("Points")
+                    b.Property<double>("Points")
                         .HasPrecision(6, 2)
-                        .HasColumnType("decimal(6,2)");
+                        .HasColumnType("float(6)");
 
                     b.Property<string>("Prompt")
                         .IsRequired()
@@ -704,7 +682,7 @@ namespace POETWeb.Migrations
             modelBuilder.Entity("POETWeb.Models.AssignmentAttempt", b =>
                 {
                     b.HasOne("POETWeb.Models.Assignment", "Assignment")
-                        .WithMany("Attempts")
+                        .WithMany()
                         .HasForeignKey("AssignmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -777,8 +755,6 @@ namespace POETWeb.Migrations
 
             modelBuilder.Entity("POETWeb.Models.Assignment", b =>
                 {
-                    b.Navigation("Attempts");
-
                     b.Navigation("Questions");
                 });
 
