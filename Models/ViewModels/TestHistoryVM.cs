@@ -5,7 +5,7 @@ namespace POET.Models.ViewModels
 {
     public class TestAttemptListItemVM
     {
-        public int AttemptId { get; set; }
+         public int AttemptId { get; set; }
         public int AttemptNumber { get; set; }
 
         public DateTimeOffset StartedAt { get; set; }

@@ -7,7 +7,7 @@ namespace POETWeb.Models.ViewModels
     public class AttemptReviewVM
     {
         public int AttemptId { get; set; }
-        public int AssignmentId { get; set; }
+        public int  AssignmentId { get; set; }
         public string AssignmentTitle { get; set; } = "";
         public DateTimeOffset? OpenAt { get; set; }
         public DateTimeOffset? CloseAt { get; set; }
