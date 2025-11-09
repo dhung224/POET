@@ -1,8 +1,8 @@
-﻿using POET.Models.Enums;
+﻿using POETWeb.Models.Enums;
 using System;
 using System.Collections.Generic;
 
-namespace POET.Models.ViewModels
+namespace POETWeb.Models.ViewModels
 {
     public class AttemptReviewVM
     {

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using POET.Models.Enums;
-using POET.Models.ViewModels;
+using POETWeb.Models.Enums;
+using POETWeb.Models.ViewModels;
 using POETWeb.Models;
 
 
-namespace POET.Models.ViewModels
+namespace POETWeb.Models.ViewModels
 {
     public class TakeAttemptVM
     {

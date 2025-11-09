@@ -1,7 +1,7 @@
 ﻿using System;
-using POET.Models.Enums;
+using POETWeb.Models.Enums;
 
-namespace POET.Models.ViewModels
+namespace POETWeb.Models.ViewModels
 {
     public class AssignmentListItemVM
     {

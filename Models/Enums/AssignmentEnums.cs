@@ -1,4 +1,4 @@
-﻿namespace POET.Models.Enums
+﻿namespace POETWeb.Models.Enums
 {
     public enum AssignmentType { Mcq = 1, Essay = 2, Mixed = 3 }
     public enum QuestionType { Mcq = 1, Essay = 2 }

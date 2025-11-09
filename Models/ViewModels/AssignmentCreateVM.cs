@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
-using POET.Models.Enums;
+using POETWeb.Models.Enums;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace POET.Models.ViewModels
+namespace POETWeb.Models.ViewModels
 {
     public class AssignmentCreateVM
     {

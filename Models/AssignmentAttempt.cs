@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using AttemptStatus = POET.Models.Enums.AttemptStatus;
+using AttemptStatus = POETWeb.Models.Enums.AttemptStatus;
 
 namespace POETWeb.Models
 {
