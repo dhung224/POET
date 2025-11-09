@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <Folder Include="Migrations\" />
+    <Folder Include="Views\Assignment\" />
     <Folder Include="wwwroot\LOGO\" />
   </ItemGroup>
 

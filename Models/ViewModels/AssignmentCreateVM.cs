@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using POET.Models.Enums;
-using POET.Models.Enums;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace POET.Models.ViewModels
+namespace POETWeb.Models.ViewModels
 {
     public class AssignmentCreateVM
     {
@@ -22,7 +21,6 @@ namespace POET.Models.ViewModels
 
         public List<CreateQuestionVM> Questions { get; set; } = new();
 
-        // postback ops (add/remove)
         public string? Op { get; set; }
         public int? QIndex { get; set; }
         public int? ChoiceIndex { get; set; }
