@@ -3,7 +3,7 @@ using POET.Models.Enums;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace POETWeb.Models.ViewModels
+namespace POET.Models.ViewModels
 {
     public class AssignmentCreateVM
     {
