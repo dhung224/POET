@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace POETWeb.Models.ViewModels
+namespace POET.Models.ViewModels
 {
     public class AttemptReviewVM
     {
