@@ -1,0 +1,634 @@
+﻿@model POETWeb.Models.ViewModels.TakeAttemptVM
+@using POETWeb.Models.Enums
+@{
+    ViewData["Title"] = Model.Title;
+    var total = Model.Questions.Count;
+}
+
+<style>
+    /* Layout */
+    .take-wrap {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 100dvh
+    }
+
+        .take-wrap > section {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh
+        }
+
+    .qnav {
+        background: #f8fafc;
+        border-right: 1px solid #e5e7eb;
+        padding: 16px;
+        overflow: auto
+    }
+
+        .qnav h6 {
+            font-weight: 700;
+            margin: 0 0 10px;
+            color: #0f172a
+        }
+
+    .qnav-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px
+    }
+
+    .qitem {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform .12s,box-shadow .12s,border-color .12s
+    }
+
+        .qitem:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0,0,0,.06)
+        }
+
+        .qitem.active {
+            border-color: #60a5fa;
+            box-shadow: 0 8px 20px rgba(37,99,235,.08)
+        }
+
+        .qitem .qtitle {
+            font-size: .92rem;
+            color: #0f172a;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .qitem .qdot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            margin-left: 10px;
+            flex-shrink: 0
+        }
+
+        .qitem.answered .qdot {
+            background: #22c55e
+        }
+
+    /* Header */
+    .qmain-header {
+        padding: 18px 24px;
+        background: linear-gradient(90deg,#2563eb,#0ea5e9);
+        color: #fff
+    }
+
+        .qmain-header .title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0
+        }
+
+    .timer {
+        margin-left: auto;
+        background: rgba(255,255,255,.15);
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-weight: 700
+    }
+
+    /* Progress */
+    .qprogress {
+        height: 6px;
+        background: rgba(255,255,255,.25);
+        margin: 6px 24px 0;
+        border-radius: 999px;
+        overflow: hidden
+    }
+
+        .qprogress > .bar {
+            height: 100%;
+            width: 0%;
+            background: #93c5fd;
+            transition: width .15s ease
+        }
+
+    /* Question content */
+    .qcontent {
+        padding: 22px 28px;
+        flex: 1 1 auto;
+        padding-bottom: 90px !important
+    }
+
+    .qtitle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px
+    }
+
+    .q-pts {
+        background: #dbeafe;
+        color: #1d4ed8;
+        border-radius: 10px;
+        padding: 2px 8px;
+        font-weight: 700;
+        white-space: nowrap
+    }
+
+    .opt {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: #fff;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: border-color .12s,box-shadow .12s
+    }
+
+        .opt:hover {
+            border-color: #a5b4fc;
+            box-shadow: 0 6px 16px rgba(99,102,241,.08)
+        }
+
+        .opt input {
+            transform: scale(1.15)
+        }
+
+    .qcontent > :last-child {
+        margin-bottom: 0 !important
+    }
+
+    .essay-box {
+        width: 100%;
+        min-height: 220px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 14px
+    }
+
+    /* Anti-select */
+    .qpanel .qtitle-row, .qpanel .opt, .qpanel .q-pts {
+        user-select: none
+    }
+
+    /* Bottom bar */
+    .take-bar {
+        position: fixed;
+        left: 260px;
+        right: 0;
+        bottom: 0;
+        z-index: 1030;
+        background: #f3f4f6;
+        color: #111827;
+        border-top: 1px solid #e5e7eb;
+        padding: 14px 20px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 10px
+    }
+
+        .take-bar .left-slot {
+            justify-self: start
+        }
+
+        .take-bar .right-slot {
+            justify-self: end;
+            display: flex;
+            gap: 10px
+        }
+
+    .btn-soft {
+        background: #ffffff;
+        border: 1px solid #d1d5db;
+        color: #111827;
+        border-radius: 10px;
+        padding: 10px 16px
+    }
+
+        .btn-soft:disabled {
+            opacity: .35
+        }
+
+    .btn-next {
+        background: #2563eb;
+        border: 0;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 16px
+    }
+
+        .btn-next:disabled {
+            opacity: .35;
+            filter: grayscale(10%)
+        }
+
+    .btn-finish {
+        background: #64748b;
+        border: 0;
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px 16px
+    }
+
+    html, body {
+        height: 100%;
+        margin: 0
+    }
+
+    :where(.container).py-3 {
+        padding-bottom: 0 !important
+    }
+
+    .take-wrap {
+        padding-bottom: 0 !important
+    }
+
+        .take-wrap > section {
+            margin-bottom: 0 !important
+        }
+
+    .modal-danger .modal-header {
+        background: #ef4444;
+        color: #fff
+    }
+
+    .modal-warn .modal-header {
+        background: #f59e0b;
+        color: #fff
+    }
+
+    @@media (max-width:991px) {
+        .take-wrap {
+            grid-template-columns: 1fr
+        }
+
+        .take-bar {
+            left: 0
+        }
+    }
+</style>
+
+@using System.Text.Json
+@{
+    var qTotal = Model.Questions.Count;
+
+    // UTC-safe times
+    var startUtc = Model.StartedAt.UtcDateTime;
+    var dueUtc = (Model.DueAt ?? Model.StartedAt.AddMinutes(Model.DurationMinutes)).UtcDateTime;
+
+    var startIso = startUtc.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'");
+    var dueIso = dueUtc.ToString("yyyy-MM-ddTHH:mm:ss.fff'Z'");
+}
+
+<div class="take-wrap" id="takeRoot" data-attempt="@Model.AttemptId">
+    <aside class="qnav">
+        <h6>Questions</h6>
+        <div class="small text-muted mb-2"><span id="answeredCount">@Model.AnsweredCount</span> of @qTotal answered</div>
+        <ul class="qnav-list" id="qList">
+            @for (var i = 0; i < qTotal; i++)
+            {
+                var q = Model.Questions[i];
+                var active = i == Model.CurrentIndex ? "active" : "";
+                var answered = q.IsAnswered ? "answered" : "";
+                <li class="qitem @active @answered" data-index="@i">
+                    @{
+                        var _raw = q.Prompt ?? "";
+                        var _short = _raw.Length <= 24 ? _raw : _raw.Substring(0, 24) + "…";
+                    }
+                    <div class="qtitle">Q@(i + 1) <span class="text-muted">· @_short</span></div>
+                    <span class="qdot" aria-hidden="true"></span>
+                </li>
+            }
+        </ul>
+    </aside>
+
+    <section>
+        <div class="qmain-header d-flex align-items-center gap-3">
+            <div class="title" id="qHeaderTitle">@Model.Title</div>
+            <div class="timer ms-auto" id="timer"></div>
+        </div>
+
+        <div class="qprogress"><div class="bar" id="qProgBar"></div></div>
+
+        <div class="qcontent">
+            @for (var i = 0; i < qTotal; i++)
+            {
+                var q = Model.Questions[i];
+                var hidden = i == Model.CurrentIndex ? "" : "style=\"display:none\"";
+                <div class="qpanel" data-index="@i" @Html.Raw(hidden)>
+                    <div class="qtitle-row mb-3">
+                        <div class="h5 fw-bold m-0" id="qTitle-@i">@q.Prompt</div>
+                        <span class="q-pts" id="qPts-@i">@((int)Math.Round(q.Points)) pts</span>
+                    </div>
+
+                    @if (q.Type == QuestionType.Mcq)
+                    {
+                        foreach (var c in q.Choices)
+                        {
+                            var cid = $"c{i}_{c.ChoiceId}";
+                            <label class="opt" for="@cid">
+                                <input type="radio"
+                                       id="@cid"
+                                       name="q-@q.QuestionId"
+                                       value="@c.ChoiceId"
+                                       @(q.SelectedChoiceId == c.ChoiceId ? "checked" : "")
+                                       data-qid="@q.QuestionId" data-kind="mcq" />
+                                <span>@c.Text</span>
+                            </label>
+                        }
+                    }
+                    else
+                    {
+                        <textarea class="essay-box"
+                          data-qid="@q.QuestionId"
+                          data-kind="essay"
+                          placeholder="Type your answer here...">@q.TextAnswer</textarea>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="take-bar">
+            <div class="left-slot">
+                <button id="btnPrev" class="btn-soft">Previous</button>
+            </div>
+            <div class="right-slot">
+                <button id="btnNext" class="btn-next">Next</button>
+
+                <form id="finishForm" asp-action="Finish" asp-controller="Assignment" method="post" class="m-0">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="attemptId" value="@Model.AttemptId" />
+                    <button type="button" id="btnFinish" class="btn-finish">Finish</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ===== Modal: Confirm finish ===== -->
+<div class="modal fade" id="confirmFinishModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header modal-warn">
+                <h5 class="modal-title"><i class="bi bi-flag"></i> Submit this attempt?</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Are you sure you want to finish and submit your answers?</p>
+                <div class="small text-muted">You cannot change answers after submission.</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-soft" data-bs-dismiss="modal">Continue working</button>
+                <button id="confirmFinishBtn" class="btn btn-primary"><i class="bi bi-check2-circle"></i> Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Modal: Time up (auto-submit) ===== -->
+<div class="modal fade" id="timeUpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header modal-danger">
+                <h5 class="modal-title"><i class="bi bi-hourglass-split"></i> Time is up</h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">Your time has ended. The attempt will be submitted automatically.</p>
+                <div class="small text-muted">Submitting in <span id="timeupCountdown">2</span> seconds…</div>
+            </div>
+            <div class="modal-footer">
+                <button id="submitNowBtn" class="btn btn-danger">Submit now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Modal: Anti-cheat warning ===== -->
+<div class="modal fade" id="antiCheatModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header modal-warn">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Suspicious activity detected</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="antiCheatMsg" class="mb-2">Please keep the test window focused and avoid taking screenshots.</div>
+                <div class="small text-muted">
+                    After <strong>2 confirmations</strong>, your attempt will be auto-submitted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="antiCheatConfirmBtn" class="btn btn-soft" data-bs-dismiss="modal">I understand</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+      const root      = document.getElementById('takeRoot');
+      const attemptId = Number(root.dataset.attempt);
+      const qPanels   = Array.from(document.querySelectorAll('.qpanel'));
+      const qItems    = Array.from(document.querySelectorAll('.qitem'));
+      const total     = @Model.Questions.Count;
+      let index       = @Model.CurrentIndex;
+
+      /* ===== Timer with time-up modal & auto-submit ===== */
+      const startAt = new Date('@startIso');
+      const dueAt   = new Date('@dueIso');
+      const timerEl = document.getElementById('timer');
+      let timeUpShown = false;
+      const finishForm = document.getElementById('finishForm');
+
+      function submitAttempt(){
+        if (submitted) return;
+        submitted = true;
+        finishForm.submit();
+      }
+
+      function showTimeUp(){
+        if (timeUpShown) return;
+        timeUpShown = true;
+        const modalEl = document.getElementById('timeUpModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl, {backdrop:'static', keyboard:false});
+        modal.show();
+
+        let t = 2; // seconds
+        const cEl = document.getElementById('timeupCountdown');
+        cEl.textContent = String(t);
+        const tick = setInterval(()=>{
+          t -= 1;
+          cEl.textContent = String(Math.max(0,t));
+          if (t<=0){
+            clearInterval(tick);
+            submitAttempt();
+          }
+        }, 1000);
+
+        document.getElementById('submitNowBtn').addEventListener('click', submitAttempt, { once:true });
+      }
+
+      function tick(){
+        const now = new Date();
+        let s = Math.max(0, Math.floor((dueAt - now)/1000));
+        const m  = String(Math.floor(s/60)).padStart(2,'0');
+        const ss = String(s%60).padStart(2,'0');
+        timerEl.textContent = `${m}:${ss}`;
+        if(s<=0){ showTimeUp(); }
+        else { requestAnimationFrame(tick); }
+      }
+      requestAnimationFrame(tick);
+
+      /* ===== Progress + Prev/Next ===== */
+      const answeredCountEl = document.getElementById('answeredCount');
+      const progEl = document.getElementById('qProgBar');
+      const btnPrev = document.getElementById('btnPrev');
+      const btnNext = document.getElementById('btnNext');
+
+      function updateButtons(){
+        btnPrev.disabled = index<=0;
+        btnNext.disabled = index>=total-1;
+      }
+      function updateProgress(i){
+        const pct = total>1 ? Math.round((i/(total-1))*100) : 100;
+        progEl.style.width = `${pct}%`;
+      }
+      function show(i){
+        qPanels.forEach((p,ix)=> p.style.display = ix===i?'block':'none');
+        qItems.forEach((li,ix)=> li.classList.toggle('active', ix===i));
+        index=i; updateButtons(); updateProgress(i);
+      }
+      updateButtons();
+
+      qItems.forEach(li=> li.addEventListener('click', ()=> show(Number(li.dataset.index)), {passive:true}));
+      btnPrev.addEventListener('click', ()=>{ if(index>0) show(index-1); }, {passive:true});
+      btnNext.addEventListener('click', ()=>{ if(index<total-1) show(index+1); }, {passive:true});
+
+      /* ===== Save answer (debounced) ===== */
+      let debounceId=null;
+      const save = (payload)=>
+        fetch('@Url.Action("SaveAnswer", "Assignment")', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload), credentials:'same-origin'
+        }).then(r=>{ if(!r.ok) throw new Error('save failed'); }).catch(console.error);
+
+      function recalcAnswered(){
+        const cnt = qItems.filter(x=>x.classList.contains('answered')).length;
+        answeredCountEl.textContent = cnt;
+      }
+
+      qPanels.forEach((panel, panelIndex)=>{
+        panel.querySelectorAll('input[type="radio"][data-kind="mcq"]').forEach(r=>{
+          r.addEventListener('change', ()=>{
+            const payload = { attemptId, questionId:Number(r.dataset.qid), selectedChoiceId:Number(r.value), textAnswer:null };
+            save(payload).then(()=>{ qItems[panelIndex]?.classList.add('answered'); recalcAnswered(); });
+          }, {passive:true});
+        });
+        panel.querySelectorAll('textarea[data-kind="essay"]').forEach(t=>{
+          t.addEventListener('input', ()=>{
+            const payload = { attemptId, questionId:Number(t.dataset.qid), selectedChoiceId:null, textAnswer:t.value };
+            clearTimeout(debounceId);
+            debounceId = setTimeout(()=> {
+              save(payload).then(()=>{
+                if(t.value.trim().length>0) qItems[panelIndex]?.classList.add('answered');
+                else qItems[panelIndex]?.classList.remove('answered');
+                recalcAnswered();
+              });
+            }, 400);
+          });
+        });
+      });
+
+      show(index);
+      window.onbeforeunload = null;
+
+      /* ===== Finish confirm modal ===== */
+      document.getElementById('btnFinish').addEventListener('click', ()=>{
+        const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmFinishModal'));
+        m.show();
+      });
+      let submitted = false;
+      document.getElementById('confirmFinishBtn').addEventListener('click', (e)=>{
+        e.preventDefault();
+        submitAttempt();
+      });
+
+      /* ===== Anti-cheat ===== */
+      let warnings = 0;
+      let antiOpen = false;
+      let lastReason = '';
+      const antiModalEl = document.getElementById('antiCheatModal');
+      const antiMsgEl   = document.getElementById('antiCheatMsg');
+      const antiBtn     = document.getElementById('antiCheatConfirmBtn');
+
+      function showAnti(reason){
+        lastReason = reason;
+        antiMsgEl.textContent = reason + (warnings >= 1 ? ' (next confirmation will auto-submit)' : '');
+        const m = bootstrap.Modal.getOrCreateInstance(antiModalEl, {backdrop:'static', keyboard:false});
+        if (!antiOpen) { m.show(); antiOpen = true; }
+      }
+
+      // Khi người dùng BẤM xác nhận mới tăng warnings
+      antiBtn.addEventListener('click', ()=>{
+        warnings++;
+        antiOpen = false;
+        if (warnings >= 2){
+          setTimeout(()=> submitAttempt(), 300);
+        }
+      });
+
+      antiModalEl.addEventListener('hidden.bs.modal', ()=>{ antiOpen = false; });
+
+      // 1) Chuyển tab / mất focus
+      document.addEventListener('visibilitychange', ()=>{
+        if (document.visibilityState === 'hidden') showAnti('We detected the test lost focus / switched tab.');
+      });
+      window.addEventListener('blur', ()=>{
+        if (!document.body.classList.contains('modal-open')) showAnti('We detected the window lost focus.');
+      });
+
+      // 2) Phím chụp màn hình
+      document.addEventListener('keydown', (e)=>{
+        if (e.key && (e.key.toLowerCase()==='printscreen' || e.key.toLowerCase()==='snapshot')){
+          e.preventDefault();
+          showAnti('Screenshot attempt (PrintScreen) detected.');
+        }
+        if ((e.shiftKey && (e.metaKey || e.ctrlKey)) && (e.key.toLowerCase()==='s')){
+          e.preventDefault();
+          showAnti('Screen snip shortcut detected.');
+        }
+      });
+
+
+      const qcontent = document.querySelector('.qcontent');
+      qcontent.addEventListener('contextmenu', (e)=>{
+        if (e.target.closest('.essay-box')) return;
+        e.preventDefault();
+      });
+      document.addEventListener('copy', (e)=>{
+        const sel = window.getSelection();
+        if (!sel) return;
+        const anchor = sel.anchorNode && (sel.anchorNode.nodeType===1 ? sel.anchorNode : sel.anchorNode.parentElement);
+        if (anchor && qcontent.contains(anchor) && !anchor.closest('.essay-box')){
+          e.preventDefault();
+          showAnti('Copy action is not allowed on questions/choices.');
+        }
+      });
+
+    })();
+</script>
