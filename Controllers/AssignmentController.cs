@@ -107,6 +107,12 @@ namespace POETWeb.Controllers
                 .FirstOrDefaultAsync(x => x.Id == attemptId && x.UserId == me.Id);
             if (t == null) return NotFound();
 
+            if (t.Status == AttemptStatus.Violated)
+            {
+                TempData["Warn"] = "This attempt was flagged as violated and cannot be reviewed.";
+                return RedirectToAction(nameof(Student), new { classId = t.Assignment.ClassId });
+            }
+
             // Chỉ xem khi đã CLOSED
             var now = DateTimeOffset.UtcNow;
             var isClosed = t.Assignment.CloseAt.HasValue && t.Assignment.CloseAt.Value <= now;
@@ -1303,6 +1309,39 @@ namespace POETWeb.Controllers
 
 
         // =========================== HELPERS ===========================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForceSubmitViolated(int attemptId)
+        {
+            var attempt = await _db.AssignmentAttempts
+                .Include(a => a.Assignment)
+                .Include(a => a.Answers)
+                .FirstOrDefaultAsync(a => a.Id == attemptId);
+
+            if (attempt == null) return NotFound();
+            if (attempt.Status != AttemptStatus.InProgress)
+                return RedirectToAction(nameof(Student), new { classId = attempt.Assignment.ClassId });
+
+            attempt.Status = AttemptStatus.Violated;
+            attempt.SubmittedAt = DateTimeOffset.UtcNow;
+
+            attempt.AutoScore = 0m;
+            attempt.FinalScore = 0m;
+            attempt.RequiresManualGrading = false;
+
+            foreach (var ans in attempt.Answers)
+            {
+                ans.IsCorrect = false;
+                ans.PointsAwarded = 0m;
+            }
+
+            await _db.SaveChangesAsync();
+            return RedirectToAction(nameof(Student), new { classId = attempt.Assignment.ClassId });
+        }
+
+
+
+
 
         private bool ApplyDesignerOp(AssignmentCreateVM vm)
         {

@@ -439,6 +439,13 @@
     </div>
 </div>
 
+<!-- Force Submit Form -->
+<form id="forceForm" method="post" asp-action="ForceSubmitViolated" asp-controller="Assignment" class="d-none">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="attemptId" value="@Model.AttemptId" />
+</form>
+
+
 <script>
     (function(){
       const root      = document.getElementById('takeRoot');
@@ -587,8 +594,10 @@
       antiBtn.addEventListener('click', ()=>{
         warnings++;
         antiOpen = false;
-        if (warnings >= 2){
-          setTimeout(()=> submitAttempt(), 300);
+        if (warnings >= 2) {
+          setTimeout(() => {
+            document.getElementById('forceForm').submit();
+          }, 300);
         }
       });
 

@@ -52,6 +52,18 @@
                                     string mcqBadgeCls = (a.McqMax > 0 && a.McqScore >= a.McqMax * 0.5m) ? "bg-success" : "bg-secondary";
                                     string finalBadgeCls = (a.FinalMax > 0 && (a.FinalScore ?? 0m) >= a.FinalMax * 0.5m) ? "bg-success" : "bg-secondary";
 
+                                    // status text + class
+                                    var st = (a.Status ?? "").Trim();
+                                    string statusClass =
+                                    st.Equals("Graded", StringComparison.OrdinalIgnoreCase) ? "badge bg-success" :
+                                    st.Equals("Submitted", StringComparison.OrdinalIgnoreCase) ? "badge bg-warning text-dark" :
+                                    st.Equals("Late", StringComparison.OrdinalIgnoreCase) ? "badge bg-dark" :
+                                    st.Equals("InProgress", StringComparison.OrdinalIgnoreCase) ? "badge bg-info" :
+                                    st.Equals("Violated", StringComparison.OrdinalIgnoreCase) ? "badge bg-danger" :
+                                    "badge bg-secondary";
+
+                                    bool isViolated = st.Equals("Violated", StringComparison.OrdinalIgnoreCase);
+
                                     <tr>
                                         <td class="fw-semibold">Attempt @a.AttemptNumber</td>
                                         <td>@a.StartedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
@@ -102,42 +114,45 @@
 
                                         <!-- Status -->
                                         <td style="white-space:nowrap;">
-                                            @{
-                                                var st = (a.Status ?? "").Trim();
-                                                if (st.Equals("Graded", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    <span class="badge bg-success">Graded</span>
-                                                    ;
-                                                }
-                                                else if (st.Equals("Submitted", StringComparison.OrdinalIgnoreCase))
-                                                {
+                                            @if (st.Equals("Graded", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="@statusClass">Graded</span>
+                                                ;
+                                            }
+                                            else if (st.Equals("Submitted", StringComparison.OrdinalIgnoreCase))
+                                            {
 
-                                                    <span class="badge bg-warning text-dark">Submitted</span>
-                                                    ;
-                                                }
-                                                else if (st.Equals("Late", StringComparison.OrdinalIgnoreCase))
-                                                {
+                                                <span class="@statusClass">Submitted</span>
+                                                ;
+                                            }
+                                            else if (st.Equals("Late", StringComparison.OrdinalIgnoreCase))
+                                            {
 
-                                                    <span class="badge bg-dark">Late</span>
-                                                    ;
-                                                }
-                                                else if (st.Equals("InProgress", StringComparison.OrdinalIgnoreCase))
-                                                {
+                                                <span class="@statusClass">Late</span>
+                                                ;
+                                            }
+                                            else if (st.Equals("InProgress", StringComparison.OrdinalIgnoreCase))
+                                            {
 
-                                                    <span class="badge bg-info">In progress</span>
-                                                    ;
-                                                }
-                                                else
-                                                {
+                                                <span class="@statusClass">In progress</span>
+                                                ;
+                                            }
+                                            else if (st.Equals("Violated", StringComparison.OrdinalIgnoreCase))
+                                            {
 
-                                                    <span class="badge bg-secondary">—</span>
-                                                    ;
-                                                }
+                                                <span class="@statusClass">Violated</span>
+                                                ;
+                                            }
+                                            else
+                                            {
+
+                                                <span class="@statusClass">—</span>
+                                                ;
                                             }
                                         </td>
 
                                         <td class="text-end" style="white-space:nowrap;">
-                                            @if (isClosed)
+                                            @if (isClosed && !isViolated)
                                             {
                                                 <a asp-action="Review"
                                                    asp-route-attemptId="@a.AttemptId"
@@ -148,8 +163,9 @@
                                             }
                                             else
                                             {
-                                                <button class="btn btn-sm btn-outline-primary" type="button" disabled
-                                                        title="Available after the assignment is closed" aria-disabled="true">
+                                                var title = !isClosed ? "Available after the assignment is closed"
+                                                : "This attempt was violated and cannot be reviewed";
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" disabled title="@title" aria-disabled="true">
                                                     View
                                                 </button>
                                             }
