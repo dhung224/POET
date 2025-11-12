@@ -32,8 +32,6 @@ namespace POETWeb.Models
 
         // Tổng điểm tối đa của đề tại thời điểm bắt đầu attempt (snapshot) - decimal
         public decimal MaxScore { get; set; }
-
-        // Điểm tự chấm (MCQ) và điểm cuối (sau khi chấm essay) - decimal
         public decimal? AutoScore { get; set; }
         public decimal? FinalScore { get; set; }
 
