@@ -59,8 +59,8 @@ namespace POETWeb.Areas.Identity.Pages.Account.Manage
             public string PhoneNumber { get; set; }
 
             [Display(Name = "Avatar URL")]
-            [Url(ErrorMessage = "Please enter a valid URL")]
-            public string AvatarUrl { get; set; } // vẫn giữ để ai muốn dán URL ngoài cũng được
+            [RegularExpression(@"^(https?://.+|/[^ ]+)?$", ErrorMessage = "Must be an http(s) URL or a site-relative path starting with /.")]
+            public string AvatarUrl { get; set; }
         }
 
         private async Task LoadAsync(ApplicationUser user)
@@ -179,11 +179,11 @@ namespace POETWeb.Areas.Identity.Pages.Account.Manage
             }
             else
             {
-                // không upload file, nhưng nếu user gõ URL khác thì set
-                var normalized = string.IsNullOrWhiteSpace(Input.AvatarUrl) ? null : Input.AvatarUrl.Trim();
-                if (user.AvatarUrl != normalized)
+                var incoming = string.IsNullOrWhiteSpace(Input?.AvatarUrl) ? null : Input.AvatarUrl.Trim();
+                if (!string.IsNullOrWhiteSpace(incoming) &&
+                    !string.Equals(incoming, user.AvatarUrl, StringComparison.Ordinal))
                 {
-                    user.AvatarUrl = normalized;
+                    user.AvatarUrl = incoming;
                     hasChanges = true;
                 }
             }

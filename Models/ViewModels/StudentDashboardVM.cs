@@ -18,6 +18,8 @@
         public int MaterialsPosted { get; set; }
         public int HoursLearned { get; set; }
         public List<StudentClassCardVM> Classes { get; set; } = new();
+        public List<UiNotice> Notices { get; set; } = new();
+
     }
 
     public class ClassQuickViewVM

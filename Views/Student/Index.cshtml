@@ -203,6 +203,95 @@
         </div>
     </section>
 
+    @{
+        string PrettyTime(DateTimeOffset when)
+        {
+            var local = when.ToLocalTime();
+            var diff = DateTimeOffset.Now - local;
+            if (diff.TotalDays >= 1) return local.ToString("dd/MM HH:mm");
+            if (diff.TotalHours >= 1) return $"{(int)diff.TotalHours}h ago";
+            var m = Math.Max(0, (int)diff.TotalMinutes);
+            return m == 0 ? "just now" : $"{m}m ago";
+        }
+
+        (string badgeText, string badgeCls) MapBadge(string kind)
+        => kind switch
+        {
+            "material" => ("Material", "badge-sky"),
+            "new-assignment" => ("New-Assignment", "badge-indigo"),
+            "graded" => ("Graded", "badge-emerald"),
+            "pending-grade" => ("Pending-Grade", "badge-amber"),
+            "deadline" => ("Deadline", "badge-rose"),
+            _ => ("Update", "badge-slate")
+        };
+    }
+    <section class="container-xxl px-4 pb-5">
+        <div class="tnoti-card shadow-sm">
+            <div class="tnoti-head">
+                <div class="tnoti-title">Notifications</div>
+                <div class="tnoti-meta">@((Model?.Notices?.Count ?? 0)) item(s)</div>
+            </div>
+
+            @if (Model.Notices == null || Model.Notices.Count == 0)
+            {
+                <div class="tnoti-empty">No updates yet.</div>
+            }
+            else
+            {
+                <div class="tnoti-body">
+                    <ul class="tnoti-list">
+                        @foreach (var n in Model.Notices)
+                        {
+                            var map = MapBadge(n.Kind);
+                            <li class="tnoti-row">
+                                <div class="tnoti-badge @map.badgeCls">@map.badgeText</div>
+
+                                <div class="tnoti-text">
+                                    @if (n.Kind == "deadline")
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> closes soon in <span class="fw-semibold">@n.ClassName</span>
+                                    }
+                                    else if (n.Kind == "graded")
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> graded in <span class="fw-semibold">@n.ClassName</span>
+                                    }
+                                    else if (n.Kind == "pending-grade")
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> needs grading in <span class="fw-semibold">@n.ClassName</span>
+                                    }
+                                    else if (n.Kind == "material")
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> in <span class="fw-semibold">@n.ClassName</span>
+                                        if (!string.IsNullOrWhiteSpace(n.Actor))
+                                        {
+                                            @: <span class="text-muted"> · by @n.Actor</span>
+                                        }
+                                    }
+                                    else if (n.Kind == "new-assignment")
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> in <span class="fw-semibold">@n.ClassName</span>
+                                        if (!string.IsNullOrWhiteSpace(n.Actor))
+                                        {
+                                            @: <span class="text-muted"> · by @n.Actor</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @: <span class="fw-semibold">@n.Title</span> in <span class="fw-semibold">@n.ClassName</span>
+                                    }
+                                </div>
+
+                                <div class="tnoti-time" title="@n.When.ToLocalTime().ToString("dd/MM/yyyy HH:mm")">
+                                    @PrettyTime(n.When)
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    </section>
+
 </div>
 
 <!-- Join Modal -->
@@ -355,6 +444,150 @@
         </div>
     </div>
 </div>
+
+
+    <style>
+    .tnoti-card {
+        border: 1px solid #eef2f7;
+        border-radius: 16px;
+        background: #fff;
+    }
+
+    .tnoti-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px dashed #eef2f7;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+    }
+
+    .tnoti-title {
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .tnoti-meta {
+        color: #64748b;
+        font-size: .875rem;
+    }
+
+    .tnoti-empty {
+        padding: 22px 18px;
+        color: #64748b;
+    }
+
+    .tnoti-body {
+        max-height: 360px;
+        overflow: auto;
+        border-bottom-left-radius: 16px;
+        border-bottom-right-radius: 16px;
+        scrollbar-gutter: stable both-edges;
+    }
+
+        .tnoti-body::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .tnoti-body::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .tnoti-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+    .tnoti-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px 0;
+    }
+
+    .tnoti-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 18px;
+        border-bottom: 1px dashed #f1f5f9;
+    }
+
+        .tnoti-row:last-child {
+            border-bottom: 0;
+        }
+
+    .tnoti-text {
+        color: #0f172a;
+        line-height: 1.35;
+        min-width: 0;
+    }
+
+        .tnoti-text .text-muted {
+            color: #6b7280 !important;
+        }
+
+    .tnoti-time {
+        color: #64748b;
+        white-space: nowrap;
+        font-size: .9rem;
+    }
+
+    .tnoti-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: .8rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .badge-slate {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    /* Update/Submitted */
+    .badge-emerald {
+        background: #bbf7d0;
+        color: #065f46;
+    }
+    /* Graded */
+    .badge-amber {
+        background: #fde68a;
+        color: #92400e;
+    }
+    /* Pending-grade */
+    .badge-sky {
+        background: #bae6fd;
+        color: #075985;
+    }
+    /* Material */
+    .badge-indigo {
+        background: #c7d2fe;
+        color: #3730a3;
+    }
+    /* New-Assignment */
+    .badge-rose {
+        background: #fecdd3;
+        color: #9f1239;
+    }
+    /* Deadline */
+
+    @@media (max-width:768px) {
+        .tnoti-row
+
+    {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .tnoti-time {
+        order: 3;
+    }
+
+    }
+    </style>
 
 
 @section Scripts {

@@ -40,6 +40,8 @@
                                 <div class="prof-subtitle">Avatar</div>
                                 <div class="row g-3">
                                     <div class="col-12">
+                                        <input type="hidden" asp-for="Input.AvatarUrl" id="avatarUrl" />
+
                                         <label class="form-label">Upload file</label>
                                         <input type="file" asp-for="AvatarFile" class="form-control" accept=".jpg,.jpeg,.png,.webp" id="avatarFile" />
                                         <div class="form-text">JPG/JPEG/PNG/WebP, tối đa 5MB.</div>
@@ -72,10 +74,6 @@
                              alt="Avatar"
                              class="avatar-circle"
                              onerror="this.onerror=null;this.src='@Url.Content("~/images/avatar-default.png")'" />
-                    </div>
-
-                    <div class="small text-muted">
-                        Ảnh hiển thị có dạng tròn (1:1). Ảnh lớn sẽ tự thu phóng (object-fit: cover).
                     </div>
 
                     <hr class="my-3" />

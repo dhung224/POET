@@ -12,7 +12,7 @@ namespace POETWeb.Models.ViewModels
 
         // Data
         public List<ClassCardVM> Classes { get; set; } = new();
-        public List<RecentActivityVM> Recent { get; set; } = new();
+        public List<TeacherNoticeVM> Notices { get; set; } = new();
         public string FirstName { get; set; } = "Teacher";
     }
 
@@ -28,15 +28,5 @@ namespace POETWeb.Models.ViewModels
     {
         JoinedClass = 1,
         SubmittedAssignment = 2
-    }
-
-    public class RecentActivityVM
-    {
-        public ActivityKind Kind { get; set; }
-        public string StudentName { get; set; } = "";
-        public string ClassTitle { get; set; } = "";
-        public string? AssignmentTitle { get; set; }
-        public DateTimeOffset When { get; set; }
-        public string TimeAgo { get; set; } = "";
     }
 }

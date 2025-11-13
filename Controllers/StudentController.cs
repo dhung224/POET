@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using POETWeb.Data;
 using POETWeb.Models;
+using POETWeb.Models.Enums;
 using POETWeb.Models.ViewModels;
-using System.ComponentModel.DataAnnotations;
 
 namespace POETWeb.Controllers
 {
@@ -83,6 +84,141 @@ namespace POETWeb.Controllers
                     Students = studentCounts.TryGetValue(c.Id, out var n) ? n : 0
                 }).ToList()
             };
+
+            var userId = me.Id;
+            var now = DateTimeOffset.UtcNow;
+            var soon = now.AddHours(5);
+
+            // Tên lớp map nhanh
+            var classNames = await _db.Classrooms.AsNoTracking()
+                .Where(c => classIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+            // 1) Assignments sắp hết hạn trong 5 giờ, user CHƯA có attempt nào
+            var expiringRaw = await _db.Assignments.AsNoTracking()
+                .Where(a => classIds.Contains(a.ClassId)
+                         && a.OpenAt <= soon
+                         && a.CloseAt != null && a.CloseAt > now && a.CloseAt <= soon)
+                .Select(a => new { a.Id, a.Title, a.ClassId, a.CloseAt })
+                .ToListAsync();
+
+            var expiringIds = expiringRaw.Select(x => x.Id).ToList();
+
+            var attemptedAssIds = await _db.AssignmentAttempts.AsNoTracking()
+                .Where(t => t.UserId == userId && expiringIds.Contains(t.AssignmentId))
+                .Select(t => t.AssignmentId)
+                .Distinct()
+                .ToListAsync();
+
+            var expiringNotices = expiringRaw
+                .Where(x => !attemptedAssIds.Contains(x.Id))
+                .Select(x => new UiNotice
+                {
+                    Kind = "deadline",
+                    Title = x.Title,
+                    ClassName = classNames.TryGetValue(x.ClassId, out var cn) ? cn : $"Class #{x.ClassId}",
+                    Actor = null,
+                    When = x.CloseAt!.Value
+                })
+                .ToList();
+
+            // 2) Trạng thái chấm cho Essay/Mixed: graded hay pending (lấy attempt mới nhất theo SubmittedAt)
+            var attemptsRaw = await _db.AssignmentAttempts.AsNoTracking()
+                .Where(t => t.UserId == userId
+                         && classIds.Contains(t.Assignment.ClassId)
+                         && (t.Assignment.Type == AssignmentType.Essay || t.Assignment.Type == AssignmentType.Mixed))
+                .Select(t => new
+                {
+                    t.AssignmentId,
+                    t.Assignment.Title,
+                    t.Assignment.ClassId,
+                    t.SubmittedAt,
+                    t.FinalScore,
+                    t.Status
+                })
+                .ToListAsync();
+
+            var latestByAssignment = attemptsRaw
+                .GroupBy(x => x.AssignmentId)
+                .Select(g => g.OrderByDescending(x => x.SubmittedAt ?? DateTimeOffset.MinValue).First())
+                .ToList();
+
+            var gradingNotices = latestByAssignment
+                .Select(x => new UiNotice
+                {
+                    Kind = (x.FinalScore.HasValue || x.Status == AttemptStatus.Graded) ? "graded" : "pending-grade",
+                    Title = x.Title,
+                    ClassName = classNames.TryGetValue(x.ClassId, out var cn) ? cn : $"Class #{x.ClassId}",
+                    Actor = null,
+                    When = x.SubmittedAt ?? now
+                })
+                .ToList();
+
+            // 3) Materials mới trong 7 ngày (kèm giáo viên)
+            var materialsRaw = await (
+                from m in _db.Materials.AsNoTracking()
+                where classIds.Contains(m.ClassId) && m.CreatedAt >= now.AddDays(-7)
+                join u in _db.Users.AsNoTracking() on m.CreatedById equals u.Id into ug
+                from u in ug.DefaultIfEmpty()
+                select new
+                {
+                    m.Title,
+                    m.ClassId,
+                    m.CreatedAt,
+                    TeacherFullName = u.FullName,
+                    TeacherUserName = u.UserName
+                }
+            ).ToListAsync();
+
+            var materialNotices = materialsRaw
+                .Select(x => new UiNotice
+                {
+                    Kind = "material",
+                    Title = x.Title,
+                    ClassName = classNames.TryGetValue(x.ClassId, out var cn) ? cn : $"Class #{x.ClassId}",
+                    Actor = !string.IsNullOrWhiteSpace(x.TeacherFullName) ? x.TeacherFullName : (x.TeacherUserName ?? "Teacher"),
+                    When = x.CreatedAt
+                })
+                .OrderByDescending(n => n.When)
+                .ToList();
+
+            // 4) Assignments mới trong 7 ngày (kèm giáo viên)
+            var newAssignRaw = await (
+                from a in _db.Assignments.AsNoTracking()
+                where classIds.Contains(a.ClassId) && a.CreatedAt >= now.AddDays(-7)
+                join u in _db.Users.AsNoTracking() on a.CreatedById equals u.Id into ug
+                from u in ug.DefaultIfEmpty()
+                select new
+                {
+                    a.Title,
+                    a.ClassId,
+                    a.Type,
+                    a.CreatedAt,
+                    TeacherFullName = u.FullName,
+                    TeacherUserName = u.UserName
+                }
+            ).ToListAsync();
+
+            var newAssignmentNotices = newAssignRaw
+                .Select(x => new UiNotice
+                {
+                    Kind = "new-assignment",
+                    Title = $"{x.Title} ({x.Type})",
+                    ClassName = classNames.TryGetValue(x.ClassId, out var cn) ? cn : $"Class #{x.ClassId}",
+                    Actor = !string.IsNullOrWhiteSpace(x.TeacherFullName) ? x.TeacherFullName : (x.TeacherUserName ?? "Teacher"),
+                    When = x.CreatedAt
+                })
+                .OrderByDescending(n => n.When)
+                .ToList();
+
+            // Gộp + sort
+            vm.Notices = expiringNotices
+                .Concat(gradingNotices)
+                .Concat(materialNotices)
+                .Concat(newAssignmentNotices)
+                .OrderByDescending(n => n.When)
+                .Take(20)
+                .ToList();
 
             return View(vm);
         }
