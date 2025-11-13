@@ -29,6 +29,7 @@ namespace POETWeb.Models.Domain
 
         // Nếu dùng link ngoài (YouTube, link thường…)
         [StringLength(1000)]
+        [Url(ErrorMessage = "https://...)")]
         public string? ExternalUrl { get; set; }
         [StringLength(50)]
         public string? Provider { get; set; }   // "YouTube", "Link"
