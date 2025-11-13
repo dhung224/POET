@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using POETWeb.Data;
 using POETWeb.Models;
 using POETWeb.Models.Domain;
+using System; // Thêm
+using System.IO; // Thêm
+using System.Linq; // Thêm
+using System.Threading.Tasks; // Thêm
+using System.Web; // Thêm (nếu dùng .NET Framework) hoặc System.Web (cho .NET Core/5+)
 
 namespace POETWeb.Controllers
 {
@@ -20,7 +25,7 @@ namespace POETWeb.Controllers
             _db = db; _userManager = userManager; _env = env;
         }
 
-        // ===== Helpers =====
+        // ===== Helpers (Không thay đổi) =====
         private async Task<bool> IsOwnerAsync(int classId)
         {
             var me = await _userManager.GetUserAsync(User);
@@ -51,7 +56,8 @@ namespace POETWeb.Controllers
                 var u = new Uri(url);
                 if (u.Host.Contains("youtube.com", StringComparison.OrdinalIgnoreCase))
                 {
-                    var q = System.Web.HttpUtility.ParseQueryString(u.Query);
+                    // Dùng System.Web.HttpUtility cho .NET Core/Framework
+                    var q = HttpUtility.ParseQueryString(u.Query);
                     return q.Get("v");
                 }
                 if (u.Host.Contains("youtu.be", StringComparison.OrdinalIgnoreCase))
@@ -63,7 +69,14 @@ namespace POETWeb.Controllers
             return null;
         }
 
-        // ===== List theo class =====
+        // Danh sách các đuôi file được phép
+        private readonly string[] _allowedExtensions = new[] {
+            ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx",
+            ".jpg", ".jpeg", ".png", ".mp4", ".zip", ".rar"
+        };
+
+
+        // ===== List theo class (Không thay đổi) =====
         [HttpGet]
         public async Task<IActionResult> Index(int classId)
         {
@@ -89,7 +102,7 @@ namespace POETWeb.Controllers
             return View(list);
         }
 
-        // ===== Create =====
+        // ===== Create (Đã sửa Validation) =====
         [Authorize(Roles = "Teacher")]
         [HttpGet]
         public async Task<IActionResult> Create(int classId)
@@ -108,8 +121,10 @@ namespace POETWeb.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Material model, IFormFile? file, string? externalUrl)
         {
+            // 1. Dọn dẹp Input
             model.IndexContent = model.IndexContent?.Trim();
-            model.ExternalUrl = model.ExternalUrl?.Trim();
+            model.ExternalUrl = model.ExternalUrl?.Trim(); // Dùng model binding
+
             if (model.ClassId <= 0) return BadRequest();
             if (!await IsOwnerAsync(model.ClassId)) return Forbid();
 
@@ -118,12 +133,21 @@ namespace POETWeb.Controllers
             var hasUrl = !string.IsNullOrWhiteSpace(url);
             var hasIndex = !string.IsNullOrWhiteSpace(model.IndexContent);
 
+            // 2. Validation (Title, Content tối thiểu, Định dạng File)
             if (string.IsNullOrWhiteSpace(model.Title))
                 ModelState.AddModelError(nameof(Material.Title), "Title is required.");
 
-            // Yêu cầu tối thiểu: có ít nhất 1 thứ
             if (!hasFile && !hasUrl && !hasIndex)
                 ModelState.AddModelError(string.Empty, "Provide at least one: File, URL or Index content.");
+
+            if (hasFile)
+            {
+                var extension = Path.GetExtension(file!.FileName).ToLowerInvariant();
+                if (!_allowedExtensions.Contains(extension))
+                {
+                    ModelState.AddModelError("file", $"Định dạng file {extension} không được hỗ trợ.");
+                }
+            }
 
             // Gỡ các field hệ thống khỏi validation
             ModelState.Remove(nameof(Material.FileUrl));
@@ -135,10 +159,13 @@ namespace POETWeb.Controllers
             if (!ModelState.IsValid)
             {
                 ViewBag.ClassId = model.ClassId;
+                // Load lại tên lớp khi validation thất bại
+                var cls = await _db.Classrooms.AsNoTracking().FirstOrDefaultAsync(c => c.Id == model.ClassId);
+                ViewBag.ClassName = cls?.Name;
                 return View(model);
             }
 
-            // 1) FILE (nếu có)
+            // 3. Xử lý logic nghiệp vụ và lưu DB
             if (hasFile)
             {
                 var dir = EnsureUploadDir();
@@ -149,13 +176,10 @@ namespace POETWeb.Controllers
                 model.FileUrl = $"/uploads/materials/{safe}";
                 model.OriginalFileName = Path.GetFileName(file.FileName);
                 model.FileSizeBytes = file.Length;
-
-                // Nếu chưa có loại phương tiện thì gợi ý
                 model.Provider ??= "Local";
                 model.MediaKind ??= "file";
             }
 
-            // 2) URL (nếu có)
             if (hasUrl)
             {
                 model.ExternalUrl = url;
@@ -174,8 +198,6 @@ namespace POETWeb.Controllers
                 }
             }
 
-
-            // 3) CHỈ Index (nếu không có File/URL)
             if (!hasFile && !hasUrl && hasIndex)
             {
                 model.Provider = "Index";
@@ -193,7 +215,7 @@ namespace POETWeb.Controllers
         }
 
 
-        // ===== Edit =====
+        // ===== Edit (Đã sửa Validation và Logic Xóa/Thay thế) =====
         [Authorize(Roles = "Teacher")]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
@@ -203,19 +225,25 @@ namespace POETWeb.Controllers
             if (!await IsOwnerAsync(m.ClassId)) return Forbid();
 
             ViewBag.ClassId = m.ClassId;
+            // Load lại tên lớp
+            var cls = await _db.Classrooms.AsNoTracking().FirstOrDefaultAsync(c => c.Id == m.ClassId);
+            ViewBag.ClassName = cls?.Name;
             return View(m);
         }
 
         [Authorize(Roles = "Teacher")]
         [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, Material input, IFormFile? file, string? externalUrl)
+        public async Task<IActionResult> Edit(int id, Material input, IFormFile? file, string? externalUrl, bool removeFile = false)
         {
+            // 1. Dọn dẹp Input
             input.IndexContent = input.IndexContent?.Trim();
             input.ExternalUrl = input.ExternalUrl?.Trim();
+
             var m = await _db.Materials.FirstOrDefaultAsync(x => x.Id == id);
             if (m == null) return NotFound();
             if (!await IsOwnerAsync(m.ClassId)) return Forbid();
 
+            // 2. Validation (Title, Content tối thiểu, Định dạng File)
             if (string.IsNullOrWhiteSpace(input.Title))
                 ModelState.AddModelError(nameof(Material.Title), "Title is required.");
 
@@ -224,23 +252,44 @@ namespace POETWeb.Controllers
             var hasUrl = !string.IsNullOrWhiteSpace(url);
             var hasIndex = !string.IsNullOrWhiteSpace(input.IndexContent);
 
-            if (!hasFile && !hasUrl && !hasIndex)
+            bool hasExistingFile = !string.IsNullOrWhiteSpace(m.FileUrl);
+            bool contentExists = hasUrl || hasIndex || hasFile || (hasExistingFile && !removeFile);
+
+            if (!contentExists)
                 ModelState.AddModelError(string.Empty, "Provide at least one: File, URL or Index content.");
+
+            if (hasFile)
+            {
+                var extension = Path.GetExtension(file!.FileName).ToLowerInvariant();
+                if (!_allowedExtensions.Contains(extension))
+                {
+                    ModelState.AddModelError("file", $"Định dạng file {extension} không được hỗ trợ.");
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 ViewBag.ClassId = m.ClassId;
-                return View(m);
+                // Load lại tên lớp khi validation thất bại
+                var cls = await _db.Classrooms.AsNoTracking().FirstOrDefaultAsync(c => c.Id == m.ClassId);
+                ViewBag.ClassName = cls?.Name;
+                return View(m); // Trả về View với lỗi
             }
+
+            // 3. Xử lý logic nghiệp vụ và lưu DB
 
             // Cập nhật thông tin chung
             m.Title = input.Title;
             m.Description = input.Description;
             m.Category = input.Category;
-            m.IndexContent = input.IndexContent;   // có hay không đều cập nhật
+            m.IndexContent = input.IndexContent;
             m.UpdatedAt = DateTime.UtcNow;
 
-            // 1) Thêm/ghi đè file mới (KHÔNG xóa URL hiện có)
-            if (hasFile)
+            string oldFileUrl = m.FileUrl; // Lưu lại đường dẫn file cũ
+            bool shouldDeleteOldFile = (hasFile || removeFile) && !string.IsNullOrWhiteSpace(oldFileUrl);
+
+            // Xử lý FILE
+            if (hasFile) // A. Nếu có file mới (ghi đè)
             {
                 var dir = EnsureUploadDir();
                 var safe = $"{Guid.NewGuid():N}{Path.GetExtension(file!.FileName)}";
@@ -250,21 +299,24 @@ namespace POETWeb.Controllers
                 m.FileUrl = $"/uploads/materials/{safe}";
                 m.OriginalFileName = Path.GetFileName(file.FileName);
                 m.FileSizeBytes = file.Length;
-
                 if (string.IsNullOrEmpty(m.Provider)) m.Provider = "Local";
                 if (string.IsNullOrEmpty(m.MediaKind)) m.MediaKind = "file";
             }
+            else if (removeFile) // B. Nếu không có file mới, nhưng tick "Remove"
+            {
+                m.FileUrl = null;
+                m.OriginalFileName = null;
+                m.FileSizeBytes = null;
+            }
 
-            // 2) Thêm/ghi đè URL mới (KHÔNG xóa file hiện có)
-            if (hasUrl)
+            // Xử lý URL
+            if (hasUrl) // A. Nếu có URL mới
             {
                 m.ExternalUrl = url;
-
                 var you = TryGetYouTubeId(url);
                 if (!string.IsNullOrEmpty(you))
                 {
-                    m.Provider = "YouTube";      // coi như “primary” là video
-                    m.MediaKind = "video";
+                    m.Provider = "YouTube"; m.MediaKind = "video";
                     m.ThumbnailUrl = $"https://img.youtube.com/vi/{you}/hqdefault.jpg";
                 }
                 else
@@ -274,8 +326,13 @@ namespace POETWeb.Controllers
                     m.ThumbnailUrl = null;
                 }
             }
+            else // B. Nếu không có URL mới (tức là người dùng đã xóa)
+            {
+                m.ExternalUrl = null;
+                m.ThumbnailUrl = null;
+            }
 
-            // 3) Nếu giờ chỉ có Index thì set hint
+            // Logic Provider/MediaKind (Nếu chỉ còn Index)
             if (string.IsNullOrWhiteSpace(m.FileUrl) && string.IsNullOrWhiteSpace(m.ExternalUrl) && hasIndex)
             {
                 m.Provider = "Index";
@@ -283,12 +340,21 @@ namespace POETWeb.Controllers
                 m.ThumbnailUrl = null;
             }
 
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(); // Lưu DB
+
+            // Xóa file vật lý CŨ (Sau khi DB đã lưu thành công)
+            if (shouldDeleteOldFile)
+            {
+                var physical = Path.Combine(_env.WebRootPath ?? "wwwroot",
+                    oldFileUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                try { if (System.IO.File.Exists(physical)) System.IO.File.Delete(physical); } catch { /* Bỏ qua lỗi */ }
+            }
+
             return RedirectToAction(nameof(Index), new { classId = m.ClassId });
         }
 
 
-        // ===== Delete =====
+        // ===== Delete (Không thay đổi) =====
         [Authorize(Roles = "Teacher")]
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
