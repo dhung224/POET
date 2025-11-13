@@ -203,6 +203,60 @@
         </div>
     </section>
 
+    @{
+        string BadgeClass(string kind) => kind switch
+        {
+            "deadline" => "bg-danger",
+            "graded" => "bg-success",
+            "pending-grade" => "bg-warning text-dark",
+            "material" => "bg-info",
+            "new-assignment" => "bg-primary",
+            _ => "bg-secondary"
+        };
+        string PrettyTime(DateTimeOffset when)
+        {
+            var local = when.ToLocalTime();
+            var diff = DateTimeOffset.Now - local;
+            if (diff.TotalDays >= 1) return local.ToString("dd/MM HH:mm");
+            if (diff.TotalHours >= 1) return $"{(int)diff.TotalHours}h ago";
+            var m = Math.Max(0, (int)diff.TotalMinutes);
+            return m == 0 ? "just now" : $"{m}m ago";
+        }
+    }
+    <section class="container-xxl px-4 pb-5">
+        <div class="card shadow-sm border-0 mt-4 notify-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="h6 fw-bold mb-0">Notifications</div>
+                    <span class="text-muted small">@(Model?.Notices?.Count ?? 0) item(s)</span>
+                </div>
+
+                <ul class="notify-list">
+                    @foreach (var n in Model.Notices)
+                    {
+                        <li class="notify-item">
+                            <span class="badge @BadgeClass(n.Kind) notify-kind text-capitalize">@n.Kind</span>
+
+                            <div class="notify-main">
+                                <div class="notify-title">
+                                    <strong>@n.Title</strong>
+                                    <span class="text-muted">in</span> @n.ClassName
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(n.Actor))
+                                {
+                                    <div class="notify-sub">by @n.Actor</div>
+                                }
+                            </div>
+
+                            <div class="notify-time" title="@n.When.ToLocalTime().ToString("dd/MM/yyyy HH:mm")">
+                                @PrettyTime(n.When)
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+	</section>
 </div>
 
 <!-- Join Modal -->
@@ -356,6 +410,111 @@
     </div>
 </div>
 
+
+    <style>
+    .notify-card .card-body {
+        max-height: 420px;
+        overflow: auto;
+        background: #fff;
+        scrollbar-gutter: stable both-edges;
+    }
+
+        .notify-card .card-body::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .notify-card .card-body::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .notify-card .card-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .notify-card .card-body::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+    .notify-card {
+        margin-top: 12px;
+    }
+
+    .notify-card {
+        max-width: 1340px;
+        margin: 18px auto;
+        border: 1px solid #eef2f7;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .notify-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .notify-item {
+        display: grid;
+        grid-template-columns: 120px 1fr 110px;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 10px;
+        transition: background .12s, transform .06s;
+    }
+
+        .notify-item:hover {
+            background: #fafafa;
+        }
+
+    .notify-kind {
+        justify-self: start;
+        text-align: center;
+        min-width: 100px;
+    }
+
+    .notify-main {
+        min-width: 0;
+    }
+
+    .notify-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .notify-sub {
+        font-size: .82rem;
+        color: #6b7280;
+        margin-top: 2px;
+    }
+    .notify-time {
+        text-align: right;
+        color: #6b7280;
+        font-size: .85rem;
+        font-variant-numeric: tabular-nums;
+    }
+    .badge.bg-primary {
+        background: linear-gradient(90deg,#6366f1,#3b82f6);
+    }
+
+    .badge.bg-info {
+        background: linear-gradient(90deg,#22d3ee,#38bdf8);
+    }
+
+    .badge.bg-warning.text-dark {
+        border: 1px solid #f59e0b22;
+    }
+
+    .badge.bg-danger {
+        background: linear-gradient(90deg,#ef4444,#f43f5e);
+    }
+
+    </style>
 
 @section Scripts {
     <script>

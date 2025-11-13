@@ -207,7 +207,6 @@
                     }
                 </div>
             </div>
-
             <button class="cc-arrow cc-right"
                     type="button"
                     aria-label="Next classes"
@@ -215,46 +214,53 @@
                 &#8250;
             </button>
         </div>
-
-
     </section>
 
-    <!-- Recent activity -->
     <section class="container-xxl px-4 pb-5">
-        <div class="tdash-card">
-            <h2 class="h5 fw-bold text-slate-900 mb-3">Recent activity</h2>
-
-            @if (Model.Recent.Count == 0)
+        <div class="tnoti-card shadow-sm">
+            <div class="tnoti-head">
+                <div class="tnoti-title">Recent updates</div>
+                <div class="tnoti-meta">@((Model.Notices?.Count ?? 0)) item(s)</div>
+            </div>
+            @if (Model.Notices == null || Model.Notices.Count == 0)
             {
-                <p class="text-slate-600 mb-0">No recent activity.</p>
+                <div class="tnoti-empty">No updates yet.</div>
             }
             else
             {
-                <ul class="list-unstyled mb-0">
-                    @foreach (var r in Model.Recent)
-                    {
-                        <li class="tdash-activity">
-                            <div class="tdash-activity__text">
-                                @if (r.Kind == ActivityKind.JoinedClass)
-                                {
-                                    <text>
-                                        <strong>@r.StudentName</strong> joined <strong>@r.ClassTitle</strong>
-                                    </text>
-                                }
-                                else
-                                {
-                                    <text>
-                                        <strong>@r.StudentName</strong> submitted <strong>@(r.AssignmentTitle ?? "an assignment")</strong> in <strong>@r.ClassTitle</strong>
-                                    </text>
-                                }
+                <div class="tnoti-body">
+                    <ul class="tnoti-list">
+                        @foreach (var n in (Model.Notices ?? new List<TeacherNoticeVM>()))
+                        {
+                            var badgeText = "Update";
+                            var badgeCls = "badge-slate";
+                            if (n.Kind == TeacherNoticeKind.NeedsGrading) { badgeText = "Needs grading"; badgeCls = "badge-amber"; }
+                            else if (n.Kind == TeacherNoticeKind.Submission) { badgeText = "Submitted"; badgeCls = "badge-slate"; }
+                            else if (n.Kind == TeacherNoticeKind.JoinedClass) { badgeText = "Joined"; badgeCls = "badge-sky"; }
+
+                            <li class="tnoti-row">
+                            <div class="tnoti-badge @badgeCls">@badgeText</div>
+
+                            <div class="tnoti-text">
+                                    @if (n.Kind == TeacherNoticeKind.JoinedClass)
+                                    {
+                                        @: <span class="fw-semibold">@n.StudentName</span> joined <span class="fw-semibold">@n.ClassName</span>
+                                    }
+                                    else
+                                    {
+                                        @: <span class="fw-semibold">@n.StudentName</span> submitted <span class="fw-semibold">@n.AssignmentTitle</span> in <span class="fw-semibold">@n.ClassName</span>
+                                    }
                             </div>
-                            <div class="tdash-activity__time">@r.TimeAgo</div>
-                        </li>
-                    }
-                </ul>
+
+                            <div class="tnoti-time">@n.WhenText</div>
+                            </li>
+                        }
+                    </ul>
+                </div>
             }
         </div>
     </section>
+
 </div>
 
 <!-- Quick View Modal -->
@@ -316,6 +322,50 @@
         </div>
     </div>
 </div>
+
+    <style>
+    .tnoti-card{
+      border:1px solid #eef2f7; border-radius:16px; background:#fff;
+    }
+    .tnoti-head{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px; border-bottom:1px dashed #eef2f7;
+      border-top-left-radius:16px; border-top-right-radius:16px;
+    }
+    .tnoti-title{ font-weight:800; color:#0f172a; }
+    .tnoti-meta{ color:#64748b; font-size:.875rem; }
+
+    .tnoti-empty{ padding:22px 18px; color:#64748b; }
+
+    .tnoti-body{
+      max-height:340px; overflow:auto;
+      border-bottom-left-radius:16px; border-bottom-right-radius:16px;
+    }
+    .tnoti-list{ list-style:none; margin:0; padding:4px 0; }
+
+    .tnoti-row{
+      display:grid; grid-template-columns:auto 1fr auto; gap:14px;
+      align-items:center; padding:12px 18px; border-bottom:1px dashed #f1f5f9;
+    }
+    .tnoti-row:last-child{ border-bottom:0; }
+    .tnoti-text{ color:#0f172a; line-height:1.35; }
+    .tnoti-time{ color:#64748b; white-space:nowrap; font-size:.9rem; }
+
+    /* badges */
+    .tnoti-badge{
+      display:inline-block; padding:4px 10px; border-radius:999px;
+      font-size:.8rem; font-weight:700; white-space:nowrap;
+    }
+    .badge-slate{ background:#e2e8f0; color:#0f172a; }     /* Submitted */
+    .badge-amber{ background:#fde68a; color:#92400e; }     /* Needs grading */
+    .badge-sky  { background:#bae6fd; color:#075985; }     /* Joined */
+
+    @@media (max-width:768px){
+      .tnoti-row{ grid-template-columns: 1fr; align-items:start; }
+      .tnoti-time{ order:3; }
+    }
+    </style>
+
 
 @section Scripts {
     <script>
@@ -509,8 +559,4 @@
         });
     </script>
 }
-
-
-
-
 

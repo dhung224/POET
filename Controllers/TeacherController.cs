@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using POETWeb.Data;
 using POETWeb.Models;
+using POETWeb.Models.Enums;
 using POETWeb.Models.ViewModels;
 using System.Globalization;
 
@@ -62,9 +63,9 @@ namespace POETWeb.Controllers
                          && t.FinalScore == null)
                 .CountAsync();
 
-            // ===== RECENT ACTIVITY: Submissions + Joins, take newest 5 =====
+            // ===== NOTICES: submissions + needs-grading + joined (top 10) =====
 
-            // Recent submissions
+            // Submissions mới nhất (lấy dư ra rồi Top 10 sau)
             var subRaw = await _db.AssignmentAttempts
                 .AsNoTracking()
                 .Where(t => t.Assignment.Class.TeacherId == teacherId && t.SubmittedAt != null)
@@ -72,30 +73,30 @@ namespace POETWeb.Controllers
                 .Select(t => new
                 {
                     t.UserId,
-                    t.SubmittedAt,
+                    t.SubmittedAt, // DateTimeOffset?
                     ClassTitle = t.Assignment.Class.Name,
-                    AssignmentTitle = t.Assignment.Title
+                    AssignmentTitle = t.Assignment.Title,
+                    NeedsGrading = t.RequiresManualGrading && t.FinalScore == null
                 })
-                .Take(10)
+                .Take(30)
                 .ToListAsync();
 
-            // Recent joins
+            // Học sinh mới join (Enrollment có JoinedAt: DateTime)
             var joinRaw = await _db.Enrollments
                 .AsNoTracking()
                 .Where(e => e.Classroom!.TeacherId == teacherId
-                         && e.RoleInClass == "Student"
-                         && e.JoinedAt != null)
-                .OrderByDescending(e => e.JoinedAt)
+                         && e.RoleInClass == "Student")
+                .OrderByDescending(e => e.JoinedAt == default(DateTime) ? DateTime.UtcNow : e.JoinedAt)
                 .Select(e => new
                 {
                     e.UserId,
-                    e.JoinedAt,
+                    e.JoinedAt, // DateTime
                     ClassTitle = e.Classroom!.Name
                 })
-                .Take(10)
+                .Take(30)
                 .ToListAsync();
 
-            // Fetch user display names
+            // Lấy tên hiển thị
             var userIds = subRaw.Select(x => x.UserId).Concat(joinRaw.Select(x => x.UserId)).Distinct().ToList();
             var users = await _db.Users
                 .Where(u => userIds.Contains(u.Id))
@@ -105,63 +106,43 @@ namespace POETWeb.Controllers
             string DisplayName(string? full, string? username)
                 => string.IsNullOrWhiteSpace(full) ? (username ?? "Student") : full!;
 
-            // Helper: convert various DateTime / DateTimeOffset into DateTimeOffset safely
-            DateTimeOffset SafeToDto(object? raw)
-            {
-                if (raw is DateTimeOffset dto) return dto;
-                if (raw is DateTime dt)
-                {
-                    return dt.Kind switch
-                    {
-                        DateTimeKind.Utc => new DateTimeOffset(dt, TimeSpan.Zero),
-                        DateTimeKind.Local => new DateTimeOffset(dt.ToUniversalTime(), TimeSpan.Zero),
-                        _ => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero)
-                    };
-                }
-                return DateTimeOffset.UtcNow;
-            }
-
-            var recent = new List<RecentActivityVM>();
+            var notices = new List<TeacherNoticeVM>();
 
             // Map submissions
-            recent.AddRange(subRaw.Select(s =>
+            notices.AddRange(subRaw.Select(s =>
             {
                 var u = users.FirstOrDefault(x => x.Id == s.UserId);
-                var whenDto = SafeToDto(s.SubmittedAt);
-                return new RecentActivityVM
+                var when = s.SubmittedAt ?? DateTimeOffset.UtcNow;
+                return new TeacherNoticeVM
                 {
-                    Kind = ActivityKind.SubmittedAssignment,
+                    Kind = s.NeedsGrading ? TeacherNoticeKind.NeedsGrading : TeacherNoticeKind.Submission,
                     StudentName = DisplayName(u?.FullName, u?.UserName),
-                    ClassTitle = s.ClassTitle,
-                    AssignmentTitle = s.AssignmentTitle,
-                    When = whenDto,
-                    TimeAgo = ToTimeAgo(whenDto.UtcDateTime)
+                    AssignmentTitle = s.AssignmentTitle ?? "(assignment)",
+                    ClassName = s.ClassTitle ?? "(class)",
+                    When = when
                 };
             }));
 
-            // Map joins
-            recent.AddRange(joinRaw.Select(j =>
+            // Map joins (JoinedAt là DateTime)
+            notices.AddRange(joinRaw.Select(j =>
             {
                 var u = users.FirstOrDefault(x => x.Id == j.UserId);
-                var whenDto = SafeToDto(j.JoinedAt);
-                return new RecentActivityVM
+                var when = ToDto(j.JoinedAt);
+                return new TeacherNoticeVM
                 {
-                    Kind = ActivityKind.JoinedClass,
+                    Kind = TeacherNoticeKind.JoinedClass,
                     StudentName = DisplayName(u?.FullName, u?.UserName),
-                    ClassTitle = j.ClassTitle,
-                    AssignmentTitle = null,
-                    When = whenDto,
-                    TimeAgo = ToTimeAgo(whenDto.UtcDateTime)
+                    AssignmentTitle = "",
+                    ClassName = j.ClassTitle ?? "(class)",
+                    When = when
                 };
             }));
 
-            // Take newest 5
-            var recentTop5 = recent
-                .OrderByDescending(x => x.When)
-                .Take(5)
+            var top10 = notices
+                .OrderByDescending(n => n.When)
+                .Take(10)
                 .ToList();
 
-            // Build VM
             var vm = new TeacherDashboardVM
             {
                 FirstName = ExtractFirstName(user.FullName),
@@ -170,20 +151,26 @@ namespace POETWeb.Controllers
                 Assignments = assignmentsCount,
                 PendingGrades = pendingGrades,
                 Classes = classes,
-                Recent = recentTop5
+                Notices = top10
             };
 
             return View(vm);
         }
 
-        // Helper
-        private static string ToTimeAgo(DateTime utcTime)
+        // Helpers
+        private static DateTimeOffset ToDto(object? raw)
         {
-            var span = DateTime.UtcNow - utcTime;
-            if (span.TotalSeconds < 60) return "just now";
-            if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} minutes ago";
-            if (span.TotalHours < 24) return $"{(int)span.TotalHours} hours ago";
-            return $"{(int)span.TotalDays} day{(span.TotalDays >= 2 ? "s" : "")} ago";
+            if (raw is DateTimeOffset dto) return dto;
+            if (raw is DateTime dt)
+            {
+                return dt.Kind switch
+                {
+                    DateTimeKind.Utc => new DateTimeOffset(dt, TimeSpan.Zero),
+                    DateTimeKind.Local => new DateTimeOffset(dt.ToUniversalTime(), TimeSpan.Zero),
+                    _ => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero)
+                };
+            }
+            return DateTimeOffset.UtcNow;
         }
 
         private static string ExtractFirstName(string? fullName)
