@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -1087,104 +1088,154 @@ namespace POETWeb.Controllers
                 return await Create(classId);
             }
 
-            AssignmentCreateVM vm;
-            using (var stream = txtFile.OpenReadStream())
-            using (var reader = new StreamReader(stream, Encoding.UTF8, true))
-            {
-                var raw = await reader.ReadToEndAsync();
-                try
-                {
-                    vm = ParseAssignmentTxt(raw, classId);
-                }
-                catch (FormatException ex)
-                {
-                    ModelState.AddModelError(string.Empty, $"Import error: {ex.Message}");
-                    return await Create(classId);
-                }
-            }
+            string raw;
+            using (var reader = new StreamReader(txtFile.OpenReadStream(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
+                raw = await reader.ReadToEndAsync();
 
-            // Cho user thấy form đã đổ dữ liệu (validation chi tiết làm ở Save)
-            ValidateAssignment(vm);
-            return View("Create", vm);
+            var result = ParseAssignmentTxtTolerant(raw, classId);
+
+            ModelState.Clear();
+            ValidateAssignment(result.VM);
+
+            TempData["ImportSummary"] =
+                $"{result.AddedQuestions} question(s) added. " +
+                $"{result.SkippedQuestions} skipped. " +
+                $"{result.Warnings.Count} warning(s).";
+
+            if (result.Warnings.Count > 0)
+                TempData["ImportWarnings"] = string.Join("\n", result.Warnings.Take(50));
+
+            return View("Create", result.VM);
+        }
+        private sealed class ImportSummary
+        {
+            public AssignmentCreateVM VM { get; init; } = default!;
+            public int AddedQuestions { get; set; }
+            public int SkippedQuestions { get; set; }
+            public List<string> Warnings { get; } = new();
         }
 
         private static readonly string[] TrueLetters =
             new[] { "A","B","C","D","E","F","G","H","I","J","K","L","M",
             "N","O","P","Q","R","S","T","U","V","W","X","Y","Z" };
 
-        private AssignmentCreateVM ParseAssignmentTxt(string raw, int classId)
+        private ImportSummary ParseAssignmentTxtTolerant(string raw, int classId)
         {
-            var vm = new AssignmentCreateVM
+            var sum = new ImportSummary
             {
-                ClassId = classId,
-                Type = AssignmentType.Mcq, // sẽ auto quyết định lại sau
-                DurationMinutes = 30,
-                MaxAttempts = 1,
-                TotalPointsMax = 100,      // MẶC ĐỊNH 100 nếu file không chỉ định
-                Questions = new List<CreateQuestionVM>()
+                VM = new AssignmentCreateVM
+                {
+                    ClassId = classId,
+                    Type = AssignmentType.Mcq,
+                    DurationMinutes = 30,
+                    MaxAttempts = 1,
+                    TotalPointsMax = 100,
+                    Questions = new List<CreateQuestionVM>()
+                }
             };
 
             if (string.IsNullOrWhiteSpace(raw))
-                throw new FormatException("Empty file.");
-
-            var lines = raw.Replace("\r\n", "\n").Split('\n');
-            int i = 0;
-
-            // helpers
-            Func<string, bool> isBlank = s => string.IsNullOrWhiteSpace(s?.Trim());
-            string peek(int k = 0) => i + k < lines.Length ? lines[i + k] : "";
-            string read() => i < lines.Length ? lines[i++] : "";
-
-            // ======= METADATA =======
-            while (i < lines.Length)
             {
-                var line = peek();
-                if (line.TrimStart().StartsWith("Q:", StringComparison.OrdinalIgnoreCase))
-                    break;
-
-                read();
-                var t = line.Trim();
-
-                if (t.StartsWith("Title:", StringComparison.OrdinalIgnoreCase)) vm.Title = t.Substring(6).Trim();
-                else if (t.StartsWith("Description:", StringComparison.OrdinalIgnoreCase)) vm.Description = t.Substring(12).Trim();
-                else if (t.StartsWith("TotalPoints:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var v = ParseInt(t.Substring(12).Trim(), "TotalPoints");
-                    if (v < 1 || v > 100) throw new FormatException("TotalPoints must be between 1 and 100.");
-                    vm.TotalPointsMax = v;
-                }
-                else if (t.StartsWith("Duration:", StringComparison.OrdinalIgnoreCase)) vm.DurationMinutes = ParseInt(t.Substring(9).Trim(), "Duration");
-                else if (t.StartsWith("MaxAttempts:", StringComparison.OrdinalIgnoreCase)) vm.MaxAttempts = ParseInt(t.Substring(12).Trim(), "MaxAttempts");
-                else if (t.StartsWith("OpenAt:", StringComparison.OrdinalIgnoreCase)) vm.OpenAt = ParseDate(t.Substring(7).Trim(), "OpenAt");
-                else if (t.StartsWith("CloseAt:", StringComparison.OrdinalIgnoreCase)) vm.CloseAt = ParseDate(t.Substring(8).Trim(), "CloseAt");
-                else if (isBlank(t)) { /* skip */ }
+                sum.Warnings.Add("Empty file.");
+                return sum;
             }
 
-            if (string.IsNullOrWhiteSpace(vm.Title))
-                throw new FormatException("Missing Title.");
+            var lines = raw.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            int i = 0;
 
-            // ======= QUESTIONS =======
+            bool IsBlank(string? s) => string.IsNullOrWhiteSpace(s);
+            string Peek(int k = 0) => i + k < lines.Length ? lines[i + k] : "";
+            string Read() => i < lines.Length ? lines[i++] : "";
+
+            // ========== METADATA ==========
             while (i < lines.Length)
             {
-                while (i < lines.Length && isBlank(peek())) read();
+                var ln = Peek();
+                if (ln.TrimStart().StartsWith("Q:", StringComparison.OrdinalIgnoreCase)) break;
+
+                Read();
+                var t = ln.Trim();
+                if (IsBlank(t)) continue;
+
+                void SetInt(string key, Action<int> setter, int min = int.MinValue, int max = int.MaxValue)
+                {
+                    var val = t.Substring(key.Length).Trim();
+                    if (int.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+                    {
+                        if (n < min || n > max) sum.Warnings.Add($"{key.TrimEnd(':')} out of range: {n}");
+                        else setter(n);
+                    }
+                    else sum.Warnings.Add($"Invalid {key.TrimEnd(':')} value: {val}");
+                }
+                DateTimeOffset? ParseDto(string s)
+                {
+                    if (DateTime.TryParseExact(s.Trim(),
+                        new[] { "dd/MM/yyyy HH:mm", "dd/MM/yyyy" },
+                        CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var dt))
+                        return new DateTimeOffset(dt);
+                    if (DateTime.TryParse(s, out var any))
+                        return new DateTimeOffset(any);
+                    return null;
+                }
+
+                if (t.StartsWith("Title:", StringComparison.OrdinalIgnoreCase))
+                    sum.VM.Title = t.Substring(6).Trim();
+                else if (t.StartsWith("Description:", StringComparison.OrdinalIgnoreCase))
+                    sum.VM.Description = t.Substring(12).Trim();
+                else if (t.StartsWith("TotalPoints:", StringComparison.OrdinalIgnoreCase))
+                    SetInt("TotalPoints:", v => sum.VM.TotalPointsMax = Math.Clamp(v, 1, 100), 1, 100);
+                else if (t.StartsWith("Duration:", StringComparison.OrdinalIgnoreCase))
+                    SetInt("Duration:", v => sum.VM.DurationMinutes = v, 1, 600);
+                else if (t.StartsWith("MaxAttempts:", StringComparison.OrdinalIgnoreCase))
+                    SetInt("MaxAttempts:", v => sum.VM.MaxAttempts = Math.Clamp(v, 1, 20), 1, 20);
+                else if (t.StartsWith("OpenAt:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var v = t.Substring(7).Trim();
+                    var dto = ParseDto(v);
+                    if (dto.HasValue) sum.VM.OpenAt = dto;
+                    else sum.Warnings.Add($"Cannot parse OpenAt: {v}");
+                }
+                else if (t.StartsWith("CloseAt:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var v = t.Substring(8).Trim();
+                    var dto = ParseDto(v);
+                    if (dto.HasValue) sum.VM.CloseAt = dto;
+                    else sum.Warnings.Add($"Cannot parse CloseAt: {v}");
+                }
+                // else: dòng rác -> bỏ qua
+            }
+
+            // ========== QUESTIONS ==========
+            while (i < lines.Length)
+            {
+                // bỏ qua dòng trắng giữa các block
+                while (i < lines.Length && IsBlank(Peek())) Read();
                 if (i >= lines.Length) break;
 
-                var header = read();
+                var header = Read();
                 if (!header.TrimStart().StartsWith("Q:", StringComparison.OrdinalIgnoreCase))
-                    throw new FormatException($"Expect 'Q:' at line {i}.");
+                {
+                    // rác ngoài block -> skip
+                    sum.Warnings.Add($"Ignored stray line {i}: {header.Trim()}");
+                    continue;
+                }
 
+                var qPrompt = header.Substring(header.IndexOf(':') + 1).Trim();
+
+                // default question
                 var q = new CreateQuestionVM
                 {
                     Type = QuestionType.Mcq,
                     Points = 1m,
-                    Prompt = header.Substring(header.IndexOf(':') + 1).Trim(),
-                    Choices = new List<CreateChoiceVM>()
+                    Prompt = qPrompt,
+                    Choices = new List<CreateChoiceVM>(),
+                    CorrectIndex = -1
                 };
 
-                while (i < lines.Length && !isBlank(peek()) &&
-                       !peek().TrimStart().StartsWith("Q:", StringComparison.OrdinalIgnoreCase))
+                while (i < lines.Length && !IsBlank(Peek()) &&
+                       !Peek().TrimStart().StartsWith("Q:", StringComparison.OrdinalIgnoreCase))
                 {
-                    var l = read().Trim();
+                    var l = Read().Trim();
 
                     if (l.StartsWith("Type:", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1193,51 +1244,45 @@ namespace POETWeb.Controllers
                     }
                     else if (l.StartsWith("Points:", StringComparison.OrdinalIgnoreCase))
                     {
-                        q.Points = ParseDecimal(l.Substring(7).Trim(), "Points");
-                        if (q.Points < 0 || (q.Points % 0.5m != 0))
-                            throw new FormatException("Each question's Points must be non-negative and multiple of 0.5.");
+                        var s = l.Substring(7).Trim().Replace(',', '.');
+                        if (decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p) && p >= 0 && (p * 2m) % 1m == 0m)
+                            q.Points = p;
+                        else
+                            sum.Warnings.Add($"Invalid Points near line {i}: '{s}'");
                     }
                     else if (l.StartsWith("Choices:", StringComparison.OrdinalIgnoreCase))
                     {
-
                         while (i < lines.Length)
                         {
-                            var rawLine = peek();
+                            var rawLine = Peek();
                             var cLine = rawLine.Trim();
-                            if (isBlank(cLine)) break;
+                            if (IsBlank(cLine)) break;
                             if (cLine.StartsWith("Q:", StringComparison.OrdinalIgnoreCase)) break;
-                            if (cLine.StartsWith("Type:", StringComparison.OrdinalIgnoreCase)) break;
-                            if (cLine.StartsWith("Points:", StringComparison.OrdinalIgnoreCase)) break;
-                            if (cLine.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase)) break;
+                            if (Regex.IsMatch(cLine, @"^(Type|Points|Answer)\s*:", RegexOptions.IgnoreCase)) break;
 
-                            bool looksChoice = cLine.StartsWith("-", StringComparison.Ordinal)
-                                            || (cLine.Length >= 2 && cLine[1] == ')' && (char.IsLetter(cLine[0]) || char.IsDigit(cLine[0])));
+                            bool looksChoice =
+                                cLine.StartsWith("-", StringComparison.Ordinal) ||
+                                (cLine.Length >= 2 && cLine[1] == ')' && (char.IsLetterOrDigit(cLine[0])));
 
                             if (!looksChoice) break;
 
-                            read();
+                            Read();
                             string text = cLine;
-
                             if (text.StartsWith("-", StringComparison.Ordinal))
                                 text = text.Substring(1).Trim();
-                            else if (text.Length >= 2 && text[1] == ')' && (char.IsLetter(text[0]) || char.IsDigit(text[0])))
+                            else if (text.Length >= 2 && text[1] == ')' && char.IsLetterOrDigit(text[0]))
                                 text = text.Substring(2).Trim();
 
-                            if (string.IsNullOrWhiteSpace(text))
-                                throw new FormatException("Choice text cannot be empty.");
-
-                            q.Choices!.Add(new CreateChoiceVM { Text = text });
+                            if (!string.IsNullOrWhiteSpace(text))
+                                q.Choices!.Add(new CreateChoiceVM { Text = text });
                         }
                     }
                     else if (l.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase))
                     {
                         var v = l.Substring(7).Trim();
-
                         int idx = -1;
                         if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var num))
-                        {
                             idx = Math.Max(1, num) - 1;
-                        }
                         else
                         {
                             var letter = v.ToUpperInvariant();
@@ -1247,15 +1292,22 @@ namespace POETWeb.Controllers
                     }
                 }
 
+                // Validate
+                var ok = true;
                 if (string.IsNullOrWhiteSpace(q.Prompt))
-                    throw new FormatException("A question is missing its prompt.");
-
+                {
+                    ok = false; sum.Warnings.Add("A question without prompt was skipped.");
+                }
                 if (q.Type == QuestionType.Mcq)
                 {
                     if (q.Choices == null || q.Choices.Count < 2)
-                        throw new FormatException("MCQ must have at least 2 choices.");
-                    if (q.CorrectIndex < 0 || q.CorrectIndex >= q.Choices.Count)
-                        throw new FormatException("MCQ Answer index is invalid.");
+                    {
+                        ok = false; sum.Warnings.Add($"Skipped MCQ with insufficient choices (have {q.Choices?.Count ?? 0}).");
+                    }
+                    if (q.CorrectIndex < 0 || q.CorrectIndex >= (q.Choices?.Count ?? 0))
+                    {
+                        ok = false; sum.Warnings.Add("Skipped MCQ with invalid Answer index.");
+                    }
                 }
                 else
                 {
@@ -1263,47 +1315,34 @@ namespace POETWeb.Controllers
                     q.CorrectIndex = 0;
                 }
 
-                vm.Questions.Add(q);
+                if (ok)
+                {
+                    sum.VM.Questions.Add(q);
+                    sum.AddedQuestions++;
+                }
+                else
+                {
+                    sum.SkippedQuestions++;
+                }
 
-                while (i < lines.Length && isBlank(peek())) read();
+                while (i < lines.Length && IsBlank(Peek())) Read();
             }
 
-            // Suy luận overall type
-            var hasMcq = vm.Questions.Any(z => z.Type == QuestionType.Mcq);
-            var hasEssay = vm.Questions.Any(z => z.Type == QuestionType.Essay);
-            vm.Type = hasMcq && hasEssay ? AssignmentType.Mixed
-                      : hasMcq ? AssignmentType.Mcq
-                      : AssignmentType.Essay;
+            // Suy luận assignment type
+            var hasMcq = sum.VM.Questions.Any(z => z.Type == QuestionType.Mcq);
+            var hasEssay = sum.VM.Questions.Any(z => z.Type == QuestionType.Essay);
+            sum.VM.Type = hasMcq && hasEssay ? AssignmentType.Mixed
+                        : hasMcq ? AssignmentType.Mcq
+                        : AssignmentType.Essay;
 
+            var total = sum.VM.Questions.Sum(z => z.Points);
+            if (total != sum.VM.TotalPointsMax)
+                sum.Warnings.Add($"Total points mismatch: expected {sum.VM.TotalPointsMax}, got {total:0.##}.");
 
-            var total = vm.Questions.Sum(z => z.Points);
-            if (total != vm.TotalPointsMax)
-                throw new FormatException($"Total points must be {vm.TotalPointsMax}. Current total: {total:0.##}");
+            if (string.IsNullOrWhiteSpace(sum.VM.Title))
+                sum.Warnings.Add("Missing Title in metadata.");
 
-            return vm;
-
-            // Local helpers
-            static int ParseInt(string s, string field)
-            {
-                if (!int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
-                    throw new FormatException($"Invalid {field}.");
-                return v;
-            }
-            static decimal ParseDecimal(string s, string field)
-            {
-                if (!decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
-                    throw new FormatException($"Invalid {field}.");
-                return v;
-            }
-            static DateTimeOffset? ParseDate(string s, string field)
-            {
-                if (string.IsNullOrWhiteSpace(s)) return null;
-                if (DateTime.TryParseExact(s.Trim(),
-                    new[] { "dd/MM/yyyy HH:mm", "dd/MM/yyyy" },
-                    CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var dt))
-                    return new DateTimeOffset(dt);
-                throw new FormatException($"Invalid {field} format. Use dd/MM/yyyy HH:mm.");
-            }
+            return sum;
         }
 
 
