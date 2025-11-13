@@ -172,6 +172,7 @@ namespace POETWeb.Controllers
                 }
             }
 
+
             // 3) CHỈ Index (nếu không có File/URL)
             if (!hasFile && !hasUrl && hasIndex)
             {
