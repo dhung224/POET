@@ -106,6 +106,7 @@ namespace POETWeb.Controllers
                 .Include(x => x.Assignment).ThenInclude(a => a.Questions).ThenInclude(q => q.Choices)
                 .Include(x => x.Answers).ThenInclude(a => a.SelectedChoice)
                 .FirstOrDefaultAsync(x => x.Id == attemptId && x.UserId == me.Id);
+
             if (t == null) return NotFound();
 
             if (t.Status == AttemptStatus.Violated)
@@ -114,78 +115,65 @@ namespace POETWeb.Controllers
                 return RedirectToAction(nameof(Student), new { classId = t.Assignment.ClassId });
             }
 
-            // Chỉ xem khi đã CLOSED
-            var now = DateTimeOffset.UtcNow;
-            var isClosed = t.Assignment.CloseAt.HasValue && t.Assignment.CloseAt.Value <= now;
-            if (!isClosed)
+            var vm = BuildAttemptReviewVM(t, forceClosedForStudent: true);
+
+            string backUrl = null!;
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
             {
-                TempData["Warn"] = "Bài thi chưa đóng. Không thể xem đáp án lúc này.";
-                return RedirectToAction(nameof(History), new { id = t.AssignmentId });
+                backUrl = returnUrl!;
             }
-
-            var vm = new AttemptReviewVM
+            else
             {
-                AttemptId = t.Id,
-                AssignmentId = t.AssignmentId,
-                AssignmentTitle = t.Assignment.Title ?? "Assignment",
-                OpenAt = t.Assignment.OpenAt,
-                CloseAt = t.Assignment.CloseAt,
-                IsClosed = true,
-                // Nếu đã chấm essay thì FinalScore có giá trị, còn không chỉ có AutoScore
-                Score = t.FinalScore ?? t.AutoScore ?? 0m,
-                TotalMax = t.MaxScore,
-                StartedAt = t.StartedAt,
-                SubmittedAt = t.SubmittedAt,
-                Duration = t.SubmittedAt.HasValue ? t.SubmittedAt.Value - t.StartedAt : (TimeSpan?)null
-            };
-
-            var qs = t.Assignment.Questions.OrderBy(q => q.Order).ToList();
-            for (int i = 0; i < qs.Count; i++)
-            {
-                var q = qs[i];
-                var ans = t.Answers.FirstOrDefault(a => a.QuestionId == q.Id);
-
-                var item = new QuestionReviewItem
-                {
-                    Index = i + 1,
-                    Type = q.Type,
-                    Prompt = q.Prompt,
-                    Points = q.Points
-                };
-
-                if (q.Type == POETWeb.Models.Enums.QuestionType.Mcq)
-                {
-                    var correct = q.Choices.FirstOrDefault(c => c.IsCorrect)?.Id;
-                    var chosen = ans?.SelectedChoiceId;
-
-                    item.ChosenChoiceId = chosen;
-                    item.CorrectChoiceId = correct;
-                    item.Choices = q.Choices
-                        .OrderBy(c => c.Order)
-                        .Select(c => new McqChoiceVM
-                        {
-                            ChoiceId = c.Id,
-                            Text = c.Text,
-                            IsChosen = chosen.HasValue && chosen.Value == c.Id,
-                            IsCorrect = correct.HasValue && correct.Value == c.Id
-                        })
-                        .ToList();
-                }
+                var refUrl = Request?.Headers["Referer"].ToString();
+                if (!string.IsNullOrWhiteSpace(refUrl) && Url.IsLocalUrl(refUrl))
+                    backUrl = refUrl!;
                 else
-                {
-                    item.EssayText = ans?.TextAnswer;
-                    item.EssayScore = ans?.PointsAwarded;      // điểm chấm tay
-                    item.TeacherComment = ans?.TeacherComment; // nhận xét câu
-                }
-
-                vm.Questions.Add(item);
+                    backUrl = Url.Action("Student", "Assignment", new { classId = t.Assignment.ClassId })!;
             }
 
-            ViewBag.ReturnUrl = string.IsNullOrWhiteSpace(returnUrl)
-            ? Url.Action("Student", "Assignment")
-            : returnUrl;
-            return View(vm);
+            ViewBag.ReturnUrl = backUrl;
+            ViewBag.IsTeacher = false;
+
+            return View("Review", vm);
         }
+
+
+        [Authorize(Roles = "Teacher")]
+        [HttpGet]
+        public async Task<IActionResult> ReviewAttempt(int attemptId, string? returnUrl = null)
+        {
+            // Lấy teacher hiện tại
+            var me = await _userManager.GetUserAsync(User);
+            if (me == null) return Challenge();
+
+            // Tải attempt + data liên quan
+            var t = await _db.AssignmentAttempts
+                .Include(x => x.Assignment).ThenInclude(a => a.Class)
+                .Include(x => x.Assignment).ThenInclude(a => a.Questions).ThenInclude(q => q.Choices)
+                .Include(x => x.Answers).ThenInclude(a => a.SelectedChoice)
+                .FirstOrDefaultAsync(x => x.Id == attemptId);
+
+            if (t == null) return NotFound();
+
+            // Chặn giáo viên không sở hữu lớp
+            if (t.Assignment.Class.TeacherId != me.Id)
+                return Forbid();
+
+            // Giáo viên được xem mọi lúc, kể cả khi bài chưa đóng hoặc attempt bị Violated
+            var vm = BuildAttemptReviewVM(t, forceClosedForStudent: false);
+
+            string backUrl;
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                backUrl = returnUrl;
+            else
+                backUrl = Url.Action("Submissions", "Assignment", new { id = t.AssignmentId })!;
+
+            ViewBag.ReturnUrl = backUrl;
+            ViewBag.IsTeacher = true;
+
+            return View("Review", vm);
+        }
+
 
         // FUNCTIONs OF TEACHER
         // TEACHER: danh sách
@@ -1379,7 +1367,68 @@ namespace POETWeb.Controllers
         }
 
 
+        private static AttemptReviewVM BuildAttemptReviewVM(AssignmentAttempt t, bool forceClosedForStudent)
+        {
+            var vm = new AttemptReviewVM
+            {
+                AttemptId = t.Id,
+                AssignmentId = t.AssignmentId,
+                AssignmentTitle = t.Assignment.Title ?? "Assignment",
+                OpenAt = t.Assignment.OpenAt,
+                CloseAt = t.Assignment.CloseAt,
+                IsClosed = forceClosedForStudent ? true :
+                                  (t.Assignment.CloseAt.HasValue && t.Assignment.CloseAt.Value <= DateTimeOffset.UtcNow),
+                Score = t.FinalScore ?? t.AutoScore ?? 0m,
+                TotalMax = t.MaxScore,
+                StartedAt = t.StartedAt,
+                SubmittedAt = t.SubmittedAt,
+                Duration = t.SubmittedAt.HasValue ? t.SubmittedAt.Value - t.StartedAt : (TimeSpan?)null
+            };
 
+            var qs = t.Assignment.Questions.OrderBy(q => q.Order).ToList();
+            for (int i = 0; i < qs.Count; i++)
+            {
+                var q = qs[i];
+                var ans = t.Answers.FirstOrDefault(a => a.QuestionId == q.Id);
+
+                var item = new QuestionReviewItem
+                {
+                    Index = i + 1,
+                    Type = q.Type,
+                    Prompt = q.Prompt,
+                    Points = q.Points
+                };
+
+                if (q.Type == POETWeb.Models.Enums.QuestionType.Mcq)
+                {
+                    var correct = q.Choices.FirstOrDefault(c => c.IsCorrect)?.Id;
+                    var chosen = ans?.SelectedChoiceId;
+
+                    item.ChosenChoiceId = chosen;
+                    item.CorrectChoiceId = correct;
+                    item.Choices = q.Choices
+                        .OrderBy(c => c.Order)
+                        .Select(c => new McqChoiceVM
+                        {
+                            ChoiceId = c.Id,
+                            Text = c.Text,
+                            IsChosen = chosen.HasValue && chosen.Value == c.Id,
+                            IsCorrect = correct.HasValue && correct.Value == c.Id
+                        })
+                        .ToList();
+                }
+                else
+                {
+                    item.EssayText = ans?.TextAnswer;
+                    item.EssayScore = ans?.PointsAwarded;
+                    item.TeacherComment = ans?.TeacherComment;
+                }
+
+                vm.Questions.Add(item);
+            }
+
+            return vm;
+        }
 
 
         private bool ApplyDesignerOp(AssignmentCreateVM vm)

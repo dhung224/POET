@@ -161,6 +161,13 @@
                                         <span class="d-none d-xl-inline">Grade</span>
                                     </a>
                                 }
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   asp-controller="Assignment"
+                                   asp-action="ReviewAttempt"
+                                   asp-route-attemptId="@it.AttemptId"
+                                   asp-route-returnUrl="@((Context?.Request?.Path + Context?.Request?.QueryString).ToString())">
+                                    View
+                                </a>
                             </td>
                         </tr>
                     }
