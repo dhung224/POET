@@ -112,15 +112,15 @@
                         </div>
 
                         <div class="col-6 col-lg-4">
-                            <label class="form-label fw-semibold">Open at</label>
-                            <input asp-for="OpenAt" class="form-control" type="datetime-local"
-                                   value="@(Model.OpenAt.HasValue? Model.OpenAt.Value.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : null)" />
+                            <label asp-for="OpenAt" class="form-label fw-semibold">Open at</label>
+                            <input asp-for="OpenAt" class="form-control" type="datetime-local" />
+                            <span asp-validation-for="OpenAt" class="text-danger small"></span>
                         </div>
 
                         <div class="col-6 col-lg-4">
-                            <label class="form-label fw-semibold">Due date</label>
-                            <input asp-for="CloseAt" class="form-control" type="datetime-local"
-                                   value="@(Model.CloseAt.HasValue? Model.CloseAt.Value.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") : null)" />
+                            <label asp-for="CloseAt" class="form-label fw-semibold">Due date</label>
+                            <input asp-for="CloseAt" class="form-control" type="datetime-local" />
+                            <span asp-validation-for="CloseAt" class="text-danger small"></span>
                         </div>
                     </div>
 

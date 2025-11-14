@@ -16,8 +16,17 @@ namespace POETWeb.Models.ViewModels
         [Range(1, 600)] public int DurationMinutes { get; set; } = 30;
         [Range(1, 20)] public int MaxAttempts { get; set; } = 1;
 
-        public DateTimeOffset? OpenAt { get; set; }
-        public DateTimeOffset? CloseAt { get; set; }
+        [Required(ErrorMessage = "Open at is required.")] public DateTimeOffset? OpenAt { get; set; }
+        [Required(ErrorMessage = "Due date is required.")] public DateTimeOffset? CloseAt { get; set; }
+        public IEnumerable<ValidationResult> Validate(ValidationContext _)
+        {
+            if (OpenAt.HasValue && CloseAt.HasValue && OpenAt.Value >= CloseAt.Value)
+            {
+                yield return new ValidationResult(
+                    "Due date must be later than Open at.",
+                    new[] { nameof(CloseAt) });
+            }
+        }
 
         public List<CreateQuestionVM> Questions { get; set; } = new();
 

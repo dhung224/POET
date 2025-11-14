@@ -1192,7 +1192,23 @@ namespace POETWeb.Controllers
                 }
                 // else: dòng rác -> bỏ qua
             }
+            if (!sum.VM.OpenAt.HasValue)
+            {
+                sum.Warnings.Add("OpenAt is missing. Set to now + 1 hour.");
+                sum.VM.OpenAt = DateTimeOffset.Now.AddHours(1);
+            }
 
+            if (!sum.VM.CloseAt.HasValue)
+            {
+                sum.Warnings.Add("CloseAt is missing. Set to OpenAt + 1 day.");
+                sum.VM.CloseAt = sum.VM.OpenAt.Value.AddDays(1);
+            }
+
+            if (sum.VM.OpenAt.Value >= sum.VM.CloseAt.Value)
+            {
+                sum.Warnings.Add("CloseAt must be after OpenAt. Adjusted to OpenAt + 1 day.");
+                sum.VM.CloseAt = sum.VM.OpenAt.Value.AddDays(1);
+            }
             // ========== QUESTIONS ==========
             while (i < lines.Length)
             {
@@ -1328,8 +1344,10 @@ namespace POETWeb.Controllers
                 sum.Warnings.Add($"Total points mismatch: expected {sum.VM.TotalPointsMax}, got {total:0.##}.");
 
             if (string.IsNullOrWhiteSpace(sum.VM.Title))
-                sum.Warnings.Add("Missing Title in metadata.");
-
+            {
+                sum.Warnings.Add("Title is missing. Set to 'Imported assignment'.");
+                sum.VM.Title = "Imported assignment";
+            }
             return sum;
         }
 
@@ -1466,9 +1484,22 @@ namespace POETWeb.Controllers
 
         private void ValidateAssignment(AssignmentCreateVM vm)
         {
-            // 1) Thời gian
+            // 1) Ngày giờ: BẮT BUỘC có và Close > Open
+            if (!vm.OpenAt.HasValue)
+                ModelState.AddModelError(nameof(vm.OpenAt), "Open date is required.");
+
+            if (!vm.CloseAt.HasValue)
+                ModelState.AddModelError(nameof(vm.CloseAt), "Due date is required.");
+
             if (vm.OpenAt.HasValue && vm.CloseAt.HasValue && vm.CloseAt <= vm.OpenAt)
                 ModelState.AddModelError(nameof(vm.CloseAt), "Due date must be after Open date.");
+
+            // khóa thêm Duration/Attempts
+            if (vm.DurationMinutes < 1 || vm.DurationMinutes > 600)
+                ModelState.AddModelError(nameof(vm.DurationMinutes), "Duration must be between 1 and 600 minutes.");
+
+            if (vm.MaxAttempts < 1 || vm.MaxAttempts > 99)
+                ModelState.AddModelError(nameof(vm.MaxAttempts), "Attempts must be between 1 and 99.");
 
             // 2) Thang điểm tối đa (1..100)
             if (vm.TotalPointsMax < 1 || vm.TotalPointsMax > 100)
@@ -1514,6 +1545,7 @@ namespace POETWeb.Controllers
                         $"Total points must equal {vm.TotalPointsMax}. Current total: {total:0.##}.");
             }
         }
+
 
         private async Task EnsureTeacherOwnsClassAsync(int classId)
         {
