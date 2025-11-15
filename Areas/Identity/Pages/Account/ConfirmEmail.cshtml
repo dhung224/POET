@@ -1,17 +1,98 @@
 ﻿@page
-@model ConfirmEmailModel
+@model POETWeb.Areas.Identity.Pages.Account.ConfirmEmailModel
 @{
-    ViewData["Title"] = "Confirm email";
+    ViewData["Title"] = "Email confirmation";
+    var ok = (Model.StatusMessage ?? "").StartsWith("Thank you", StringComparison.OrdinalIgnoreCase);
 }
 
-<h1>@ViewData["Title"]</h1>
+<div class="email-wrap">
+    <div class="email-hero">
+        <div class="container-xxl px-4 d-flex align-items-center justify-content-between h-100">
+            <div class="text-white">
+                <div class="small opacity-75">Account</div>
+                <h1 class="h3 fw-bold mb-0">Email confirmation</h1>
+            </div>
+        </div>
+    </div>
 
-<div class="alert alert-success" role="alert">
-    Your email has been successfully confirmed.
+    <div class="container-xxl px-4">
+        <div class="result-card shadow-sm">
+            <div class="result-icon @(ok ? "ok" : "err")" aria-hidden="true">
+                @if (ok)
+                {
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20.3 7.7 18.9 6.3z" /></svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14H11v-2h2v2zm0-4H11V7h2v5z" /></svg>
+                }
+            </div>
+
+            <h2 class="h5 fw-bold mb-1">@ViewData["Title"]</h2>
+            <p class="mb-3 text-muted">@Model.StatusMessage</p>
+
+            <div class="d-flex flex-wrap gap-2">
+                <a asp-page="/Index" class="btn btn-primary">Go to Home</a>
+                <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-light border">Sign in</a>
+            </div>
+        </div>
+
+        <div class="help-box">
+            <div class="small text-muted">
+                Didn’t expect this page? If you opened this by mistake, you can safely close it.
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="text-center mt-4">
-    <a asp-page="/Account/Login" class="btn btn-primary">
-        Back to Login
-    </a>
-</div>
+<style>
+    .email-hero {
+        height: 140px;
+        background: linear-gradient(90deg,#6366f1,#22d3ee);
+        color: #fff;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .result-card {
+        max-width: 760px;
+        margin: -30px auto 0;
+        background: #fff;
+        border: 1px solid #eef2f7;
+        border-radius: 16px;
+        padding: 22px;
+        text-align: center;
+    }
+
+    .result-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: -46px auto 14px;
+        box-shadow: 0 6px 16px rgba(0,0,0,.08);
+    }
+
+        .result-icon.ok {
+            background: #ecfdf5;
+            color: #059669;
+        }
+
+        .result-icon.err {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+    .help-box {
+        max-width: 760px;
+        margin: 12px auto 24px;
+        padding: 8px;
+        text-align: center;
+    }
+
+    .btn {
+        border-radius: 10px;
+        padding: .55rem 1rem;
+    }
+</style>

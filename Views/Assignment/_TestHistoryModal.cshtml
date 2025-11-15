@@ -154,16 +154,18 @@
                                         <td class="text-end" style="white-space:nowrap;">
                                             @if (isClosed && !isViolated)
                                             {
-                                                <a asp-action="Review"
+                                                <a class="btn btn-outline-secondary btn-sm"
+                                                   asp-controller="Assignment"
+                                                   asp-action="Review"
                                                    asp-route-attemptId="@a.AttemptId"
-                                                   asp-route-returnUrl="@Context.Request.Path + Context.Request.QueryString"
-                                                   class="btn btn-sm btn-outline-primary">
+                                                   asp-route-returnUrl="@(Url.Action("Student", "Assignment", new { classId = ViewBag.ClassId }))">
                                                     View
                                                 </a>
                                             }
                                             else
                                             {
-                                                var title = !isClosed ? "Available after the assignment is closed"
+                                                var title = !isClosed
+                                                ? "Available after the assignment is closed"
                                                 : "This attempt was violated and cannot be reviewed";
                                                 <button class="btn btn-sm btn-outline-secondary" type="button" disabled title="@title" aria-disabled="true">
                                                     View

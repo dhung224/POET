@@ -12,28 +12,20 @@
         </div>
 
         @{
-            var refUrl = Context?.Request?.Headers["Referer"].ToString();
-            string backUrl = null;
+            var backUrl = ViewBag.ReturnUrl as string;
 
-            if (!string.IsNullOrWhiteSpace(refUrl)
-            && refUrl.Contains("/Assignment/Student", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(backUrl))
             {
-                backUrl = refUrl;
-            }
-            else
-            {
-                var tryWithAssignment = Url.Action("Student", "Assignment", new { id = Model.AssignmentId });
-                var classIdObj = ViewBag.ClassId;
-                var tryWithClass = classIdObj != null
-                ? Url.Action("Student", "Assignment", new { classId = classIdObj })
-                : null;
-
-                backUrl = !string.IsNullOrEmpty(tryWithAssignment)
-                ? tryWithAssignment
-                : (!string.IsNullOrEmpty(tryWithClass) ? tryWithClass : null);
-                if (string.IsNullOrEmpty(backUrl))
+                if ((ViewBag.IsTeacher as bool?) == true)
                 {
-                    backUrl = Url.Action("Index", "Student");
+                    backUrl = Url.Action("Submissions", "Assignment", new { id = Model.AssignmentId });
+                }
+                else
+                {
+                    var classId = ViewBag.ClassId as int?;
+                    backUrl = classId.HasValue
+                    ? Url.Action("Student", "Assignment", new { classId = classId.Value })
+                    : Url.Action("Student", "Assignment");
                 }
             }
         }
@@ -43,6 +35,8 @@
         </a>
     </div>
 </div>
+
+
 
 
 <div class="container-xxl py-3">
@@ -57,7 +51,9 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="fw-semibold">Summary</div>
-                        <span class="badge bg-dark-subtle text-dark">Closed</span>
+                        <span class="badge @(Model.IsClosed ? "bg-dark-subtle text-dark" : "bg-warning text-dark")">
+                            @(Model.IsClosed ? "Closed" : "Open")
+                        </span>
                     </div>
 
                     <div class="mb-2">
@@ -135,7 +131,7 @@
                                             }
                                             @if (c.IsChosen && !c.IsCorrect)
                                             {
-                                                <span class="badge bg-danger-subtle text-danger">Your choice</span>
+                                                <span class="badge bg-danger-subtle text-danger">Student Choice</span>
                                             }
                                         </div>
                                     </div>
@@ -234,13 +230,14 @@
             background: #f0fff4
         }
 
-            .choice.correct .choice-dot {
-                background: #34d399
-            }
-
         .choice.chosen .choice-dot {
             background: #ef4444
         }
+
+        .choice.correct .choice-dot {
+            background: #34d399
+        }
+
 
     .essay-box {
         border: 1px dashed #cbd5e1;
