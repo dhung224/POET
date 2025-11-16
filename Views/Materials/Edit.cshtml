@@ -23,32 +23,28 @@
 <div class="container py-3 section-shell">
     <div class="card shadow-sm border-0">
         <div class="card-body p-4">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
-
             <form asp-action="Edit" method="post" enctype="multipart/form-data" id="materialForm">
                 @Html.AntiForgeryToken()
-
-                <input type="hidden" id="hasExistingFile" value="@hasExistingFile.ToString().ToLower()">
-
                 <input type="hidden" asp-for="Id" />
                 <input type="hidden" asp-for="ClassId" />
 
+                <!-- Title + Description -->
                 <div class="row g-3">
                     <div class="col-12 col-lg-7">
                         <label asp-for="Title" class="form-label fw-semibold">Title</label>
                         <input asp-for="Title" class="form-control form-control-lg" placeholder="Short, clear title…" />
-                        <span asp-validation-for="Title" class="text-danger small"></span>
+                        <span asp-validation-for="Title" class="text-danger"></span>
                     </div>
                     <div class="col-12 col-lg-5">
                         <label asp-for="Description" class="form-label fw-semibold">Description</label>
                         <input asp-for="Description" class="form-control" placeholder="Optional one-line summary…" />
-                        <span asp-validation-for="Description" class="text-danger small"></span>
                     </div>
                 </div>
 
                 <hr class="my-4">
 
                 <div class="row g-4">
+                    <!-- URL / YouTube -->
                     <div class="col-12 col-lg-6">
                         <div class="matc-box">
                             <div class="matc-box__head">
@@ -58,10 +54,8 @@
                                 <div class="small text-muted">Paste a YouTube URL or any external link.</div>
                             </div>
                             <div class="matc-box__body">
-
-                                <label asp-for="ExternalUrl" class="form-label fw-semibold">External URL</label>
-                                <input asp-for="ExternalUrl" class="form-control" placeholder="https://…" id="urlInput" />
-                                <span asp-validation-for="ExternalUrl" class="text-danger small"></span>
+                                <label class="form-label fw-semibold">External URL</label>
+                                <input type="url" name="externalUrl" id="urlInput" class="form-control" value="@Model.ExternalUrl" placeholder="https://…" />
                                 <div class="form-text">Leave empty to remove.</div>
 
                                 <div id="urlPreview" class="mt-3 d-none">
@@ -73,6 +67,7 @@
                         </div>
                     </div>
 
+                    <!-- File replace -->
                     <div class="col-12 col-lg-6">
                         <div class="matc-box">
                             <div class="matc-box__head">
@@ -99,8 +94,7 @@
                                 }
 
                                 <div id="dropZone" class="matc-drop">
-                                    <input id="fileInput" name="file" type="file" class="visually-hidden"
-                                           accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4,.zip,.rar" />
+                                    <input id="fileInput" name="file" type="file" class="visually-hidden" />
                                     <div class="matc-drop__icon"><i class="bi bi-cloud-arrow-up"></i></div>
                                     <div class="matc-drop__text">
                                         <strong>Drag & drop</strong> a new file here, or
@@ -112,13 +106,11 @@
                                     <span id="fileSize" class="text-muted ms-2"></span>
                                     <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="clearFile">Clear</button>
                                 </div>
-
-                                <span id="fileError" class="text-danger small mt-2 d-none"></span>
-
                             </div>
                         </div>
                     </div>
 
+                    <!-- Index content -->
                     <div class="col-12">
                         <div class="matc-box">
                             <div class="matc-box__head">
@@ -131,7 +123,6 @@
                                 <label asp-for="IndexContent" class="form-label fw-semibold">Content</label>
                                 <textarea asp-for="IndexContent" class="form-control" rows="8" id="indexInput"
                                           placeholder="Write something helpful…"></textarea>
-                                <span asp-validation-for="IndexContent" class="text-danger small"></span>
                                 <div class="d-flex justify-content-between small mt-1">
                                     <div class="text-muted">Supports plain text or HTML.</div>
                                     <div id="indexCount" class="text-muted">0 chars</div>
@@ -141,6 +132,7 @@
                     </div>
                 </div>
 
+                <!-- Footer -->
                 <div class="d-flex align-items-center justify-content-between mt-4">
                     <div class="d-flex flex-wrap gap-2">
                         <span class="pill pill-gray" id="pillTitle">Title • 0</span>
@@ -148,6 +140,7 @@
                         <span class="pill pill-gray" id="pillFile">File</span>
                         <span class="pill pill-gray" id="pillIndex">Index • 0</span>
                     </div>
+
                     <div class="d-flex gap-2">
                         <a class="btn btn-soft-slate" asp-action="Index" asp-route-classId="@classId">Cancel</a>
                         <button type="submit" id="btnSave" class="btn btn-grad-amber px-4">Save</button>
@@ -283,18 +276,31 @@
     <script>
         function bytesToKB(b){ return Math.round((b||0)/1024).toLocaleString() + ' KB'; }
 
-        // ===== YouTube preview (Không đổi) =====
+        // YouTube preview
         (function(){
             const url = document.getElementById('urlInput');
             const wrap = document.getElementById('urlPreview');
             const frame = document.getElementById('ytFrame');
-            function getYoutubeId(u){ try{ const x = new URL(u); if (x.hostname.includes('youtube.com')) return new URLSearchParams(x.search).get('v') || ''; if (x.hostname.includes('youtu.be')) return x.pathname.replace('/',''); }catch{} return ''; }
-            function update(){ const id = getYoutubeId(url.value.trim()); if(id){ frame.src = 'https://www.youtube.com/embed/' + id; wrap.classList.remove('d-none'); } else { frame.removeAttribute('src'); wrap.classList.add('d-none'); } window.refreshPills && window.refreshPills(); }
+
+            function getYoutubeId(u){
+                try{
+                    const x = new URL(u);
+                    if (x.hostname.includes('youtube.com')) return new URLSearchParams(x.search).get('v') || '';
+                    if (x.hostname.includes('youtu.be')) return x.pathname.replace('/','');
+                }catch{}
+                return '';
+            }
+            function update(){
+                const id = getYoutubeId(url.value.trim());
+                if(id){ frame.src = 'https://www.youtube.com/embed/' + id; wrap.classList.remove('d-none'); }
+                else { frame.removeAttribute('src'); wrap.classList.add('d-none'); }
+                refreshPills();
+            }
             url?.addEventListener('input', update, {passive:true});
             update();
         })();
 
-        // ===== Drag & drop replace (Sửa đổi nhỏ) =====
+        // Drag & drop replace
         (function(){
             const dz = document.getElementById('dropZone');
             const fi = document.getElementById('fileInput');
@@ -304,61 +310,40 @@
             const sizeEl = document.getElementById('fileSize');
             const clearBtn = document.getElementById('clearFile');
 
-            function showFile(f){ if(!f){ info.classList.add('d-none'); nameEl.textContent='—'; sizeEl.textContent=''; return; } info.classList.remove('d-none'); nameEl.textContent = f.name; sizeEl.textContent = '(' + bytesToKB(f.size) + ')'; }
+            function showFile(f){
+                if(!f){ info.classList.add('d-none'); nameEl.textContent='—'; sizeEl.textContent=''; return; }
+                info.classList.remove('d-none');
+                nameEl.textContent = f.name;
+                sizeEl.textContent = '(' + bytesToKB(f.size) + ')';
+            }
+
             btn?.addEventListener('click', ()=>fi.click());
+            fi?.addEventListener('change', ()=>{ showFile(fi.files?.[0] || null); refreshPills(); });
+            clearBtn?.addEventListener('click', ()=>{ fi.value=''; showFile(null); refreshPills(); });
 
-            // SỬA: Gọi validateFile() trước khi gọi refreshPills()
-            fi?.addEventListener('change', ()=>{
-                const file = fi.files?.[0] || null;
-                if (window.validateFile(file)) { // Nếu file hợp lệ
-                    showFile(file);
-                } else { // Nếu file không hợp lệ
-                    fi.value = ''; // Xóa file không hợp lệ
-                    showFile(null);
-                }
-                window.refreshPills && window.refreshPills();
+            ['dragenter','dragover'].forEach(ev=>{
+                dz.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }, false);
             });
-
-            clearBtn?.addEventListener('click', ()=>{ fi.value=''; showFile(null); window.validateFile(null); window.refreshPills && window.refreshPills(); });
-            // (Logic Drag/Drop không đổi)
-            ['dragenter','dragover'].forEach(ev=>{ dz.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }, false); });
-            ['dragleave','drop'].forEach(ev=>{ dz.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }, false); });
+            ['dragleave','drop'].forEach(ev=>{
+                dz.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }, false);
+            });
             dz.addEventListener('drop', e=>{
                 if(e.dataTransfer?.files?.length){
                     fi.files = e.dataTransfer.files;
-                    // SỬA: Gọi validateFile()
-                    const file = fi.files?.[0] || null;
-                    if (window.validateFile(file)) {
-                        showFile(file);
-                    } else {
-                        fi.value = '';
-                        showFile(null);
-                    }
-                    window.refreshPills && window.refreshPills();
+                    showFile(fi.files[0]);
+                    refreshPills();
                 }
             });
         })();
 
-        // ===== Counters + pills + Button Control (SỬA LỖI HOÀN CHỈNH CHO EDIT.CSHTML) =====
+        // Counters + pills
         (function(){
-            // Lấy các trường input
             const title = document.getElementById('Title');
             const url = document.getElementById('urlInput');
             const file = document.getElementById('fileInput');
-            const index = document.getElementById('indexInput'); // Sẽ tìm thấy vì đã thêm lại ở FIX 5
+            const index = document.getElementById('indexInput');
             const count = document.getElementById('indexCount');
-            const btn = document.getElementById('btnSave'); // Lấy nút Save
 
-            // SỬA: Lấy trạng thái file cũ từ HTML
-            const existingFileEl = document.getElementById('hasExistingFile');
-            const hasExistingFile = (existingFileEl?.value === 'true');
-            const removeFileCheck = document.getElementById('removeFile'); // Checkbox "Remove"
-
-            // SỬA: Lấy phần tử hiển thị lỗi file
-            const fileErrorEl = document.getElementById('fileError');
-            const allowedExtensions = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".mp4", ".zip", ".rar"];
-
-            // Lấy các pill
             const pillTitle = document.getElementById('pillTitle');
             const pillUrl = document.getElementById('pillUrl');
             const pillFile = document.getElementById('pillFile');
@@ -366,74 +351,23 @@
 
             function niceLen(s){ return (s||'').length.toLocaleString(); }
 
-            // SỬA: Hàm validate file mới
-            window.validateFile = function(f) {
-                if (!f) {
-                    fileErrorEl.textContent = '';
-                    fileErrorEl.classList.add('d-none');
-                    return true; // Không có file là hợp lệ
-                }
-                const ext = ('.' + f.name.split('.').pop()).toLowerCase();
-                if (!allowedExtensions.includes(ext)) {
-                    fileErrorEl.textContent = `Định dạng file ${ext} không được hỗ trợ.`;
-                    fileErrorEl.classList.remove('d-none');
-                    return false; // File không hợp lệ
-                }
-
-                fileErrorEl.textContent = '';
-                fileErrorEl.classList.add('d-none');
-                return true; // File hợp lệ
-            }
-
-            // Hàm chính để kiểm tra
             window.refreshPills = function(){
-                // 1. Lấy giá trị đã dọn dẹp (trim)
-                const t = title?.value?.trim() || '';
-                const u = url?.value?.trim() || '';
-                const ix = index?.value?.trim() || '';
-
-                // 2. SỬA: Kiểm tra trạng thái file phức tạp hơn
-                const f_new = (file?.files && file.files.length) > 0; // Có file MỚI?
-                const f_remove = removeFileCheck?.checked; // Có đang CHỌN xóa file cũ?
-
-                // File được coi là TỒN TẠI nếu:
-                // (Có file MỚI) HOẶC (Có file CŨ VÀ không bị đánh dấu xóa)
-                const f = f_new || (hasExistingFile && !f_remove);
-
-                // 3. Cập nhật Pill (UX)
-                if (pillTitle) pillTitle.textContent = 'Title • ' + niceLen(t);
-                if (pillUrl)   pillUrl.className   = u ? 'pill pill-indigo' : 'pill pill-gray';
-                if (pillFile)  pillFile.className  = f ? 'pill pill-emerald' : 'pill pill-gray';
-                if (pillIndex){
-                    pillIndex.textContent = 'Index • ' + niceLen(ix);
-                    pillIndex.className   = ix ? 'pill pill-sky' : 'pill pill-gray';
-                }
-
-                // 4. SỬA: Logic vô hiệu hóa nút (phải kiểm tra cả file hợp lệ)
-                const hasContent = !!(u || f || ix); // true nếu có URL HOẶC File HOẶC Index
-                const hasTitle   = !!t;
-                // Kiểm tra file (nếu có) có hợp lệ không
-                const isFileValid = validateFile(file?.files?.[0]);
-
-                // Nút Save sẽ bị vô hiệu hóa nếu thiếu Title HOẶC thiếu Content HOẶC file không hợp lệ
-                if (btn) btn.disabled = !(hasTitle && hasContent && isFileValid);
+                pillTitle.textContent = 'Title • ' + niceLen(title?.value);
+                pillUrl.className = (url?.value?.trim()? 'pill pill-indigo':'pill pill-gray');
+                pillFile.className = ( (file?.files?.length||0) ? 'pill pill-emerald':'pill pill-gray');
+                pillIndex.textContent = 'Index • ' + niceLen(index?.value);
+                pillIndex.className = (index?.value?.trim()? 'pill pill-sky':'pill pill-gray');
             };
 
-            function updateCount(){
-                if (count) count.textContent = (index?.value?.length || 0).toLocaleString() + ' chars';
-            }
+            function updateCount(){ count.textContent = (index?.value?.length || 0).toLocaleString() + ' chars'; }
 
-            // Gắn sự kiện cho TẤT CẢ các input có thể thay đổi trạng thái
             ['input','change'].forEach(ev=>{
                 title?.addEventListener(ev, refreshPills, {passive:true});
                 url?.addEventListener(ev, refreshPills, {passive:true});
                 index?.addEventListener(ev, ()=>{ updateCount(); refreshPills(); }, {passive:true});
                 file?.addEventListener(ev, refreshPills, {passive:true});
-                // Thêm sự kiện cho checkbox "Remove"
-                removeFileCheck?.addEventListener('change', refreshPills, {passive:true});
             });
 
-            // Chạy lần đầu khi tải trang để set trạng thái ban đầu của nút Save
             updateCount();
             refreshPills();
         })();

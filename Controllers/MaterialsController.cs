@@ -108,8 +108,6 @@ namespace POETWeb.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Material model, IFormFile? file, string? externalUrl)
         {
-            model.IndexContent = model.IndexContent?.Trim();
-            model.ExternalUrl = model.ExternalUrl?.Trim();
             if (model.ClassId <= 0) return BadRequest();
             if (!await IsOwnerAsync(model.ClassId)) return Forbid();
 
@@ -210,8 +208,6 @@ namespace POETWeb.Controllers
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Material input, IFormFile? file, string? externalUrl)
         {
-            input.IndexContent = input.IndexContent?.Trim();
-            input.ExternalUrl = input.ExternalUrl?.Trim();
             var m = await _db.Materials.FirstOrDefaultAsync(x => x.Id == id);
             if (m == null) return NotFound();
             if (!await IsOwnerAsync(m.ClassId)) return Forbid();
@@ -224,8 +220,6 @@ namespace POETWeb.Controllers
             var hasUrl = !string.IsNullOrWhiteSpace(url);
             var hasIndex = !string.IsNullOrWhiteSpace(input.IndexContent);
 
-            if (!hasFile && !hasUrl && !hasIndex)
-                ModelState.AddModelError(string.Empty, "Provide at least one: File, URL or Index content.");
             if (!ModelState.IsValid)
             {
                 ViewBag.ClassId = m.ClassId;
