@@ -117,25 +117,36 @@ namespace POETWeb.Controllers
 
             var vm = BuildAttemptReviewVM(t, forceClosedForStudent: true);
 
-            string backUrl = null!;
-            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            string? refUrl = Request?.Headers["Referer"].ToString();
+            if (!string.IsNullOrWhiteSpace(refUrl))
             {
-                backUrl = returnUrl!;
+                try
+                {
+                    var uri = new Uri(refUrl, UriKind.Absolute);
+                    var currentHost = $"{Request.Scheme}://{Request.Host}";
+                    if (refUrl.StartsWith(currentHost, StringComparison.OrdinalIgnoreCase))
+                    {
+                        refUrl = uri.PathAndQuery;
+                    }
+                }
+                catch
+                {
+                    refUrl = null;
+                }
             }
-            else
-            {
-                var refUrl = Request?.Headers["Referer"].ToString();
-                if (!string.IsNullOrWhiteSpace(refUrl) && Url.IsLocalUrl(refUrl))
-                    backUrl = refUrl!;
-                else
-                    backUrl = Url.Action("Student", "Assignment", new { classId = t.Assignment.ClassId })!;
-            }
+
+            string backUrl =
+                (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)) ? returnUrl! :
+                (!string.IsNullOrWhiteSpace(refUrl) && Url.IsLocalUrl(refUrl)) ? refUrl! :
+                Url.Action("Student", "Assignment", new { classId = t.Assignment.ClassId })!;
 
             ViewBag.ReturnUrl = backUrl;
             ViewBag.IsTeacher = false;
+            ViewBag.ClassId = t.Assignment.ClassId;
 
             return View("Review", vm);
         }
+
 
 
         [Authorize(Roles = "Teacher")]

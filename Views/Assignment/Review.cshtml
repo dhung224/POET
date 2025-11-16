@@ -13,6 +13,7 @@
 
         @{
             var backUrl = ViewBag.ReturnUrl as string;
+            var classId = ViewBag.ClassId as int?;
 
             if (string.IsNullOrWhiteSpace(backUrl))
             {
@@ -22,17 +23,31 @@
                 }
                 else
                 {
-                    var classId = ViewBag.ClassId as int?;
-                    backUrl = classId.HasValue
-                    ? Url.Action("Student", "Assignment", new { classId = classId.Value })
-                    : Url.Action("Student", "Assignment");
+                    if (classId.HasValue)
+                    {
+                        backUrl = Url.Action("Student", "Assignment", new { classId = classId.Value });
+                    }
+                    else
+                    {
+                        backUrl = Url.Action("Student", "Assignment");
+                    }
+                }
+            }
+            else
+            {
+                if ((ViewBag.IsTeacher as bool?) != true
+                && backUrl.Contains("/Assignment/Student", StringComparison.OrdinalIgnoreCase)
+                && classId.HasValue
+                && !backUrl.Contains("classId=", StringComparison.OrdinalIgnoreCase))
+                {
+                    backUrl = Url.Action("Student", "Assignment", new { classId = classId.Value });
                 }
             }
         }
-
         <a href="@backUrl" class="btn btn-light btn-sm">
             <i class="bi bi-arrow-left"></i> Back
         </a>
+
     </div>
 </div>
 
@@ -101,9 +116,6 @@
                                 <i class="bi bi-star"></i>
                                 <span>@q.Points.ToString("0.##")</span> pts
                             </div>
-                            <span class="badge @(got >= q.Points * 0.999m ? "bg-success" : (got > 0 ? "bg-warning text-dark" : "bg-danger"))">
-                                @got.ToString("0.##") / @q.Points.ToString("0.##")
-                            </span>
                         </div>
                     </div>
 
