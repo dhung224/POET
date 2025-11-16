@@ -14,8 +14,6 @@ namespace POETWeb.Controllers
                 return RedirectToAction("Index", "Student"); // mặc định student
             }
 
-
-
             // Khách (chưa login) thì trả về trang landing bình thường
             return View();
         }
