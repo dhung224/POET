@@ -1,36 +1,174 @@
 ﻿@model POETWeb.Models.Domain.Classroom
-<div class="p-2">
-    <h5 class="mb-1 text-slate-900">
-        @Model.Name <small class="text-slate-600">(@Model.ClassCode)</small>
-    </h5>
-    <div class="text-slate-600 mb-2"><b>Subject:</b> @Model.Subject</div>
+@{
+    // Lấy count chắc cú từ ViewBag nếu controller đã set
+    var total = ViewBag.EnrolledCount is int ec ? ec : (Model.Enrollments?.Count ?? 0);
 
+    int? cap = Model.MaxStudents;
+    bool hasCap = cap.HasValue && cap.Value > 0;
+    bool full = hasCap && total >= cap.Value;
+
+    var capText = hasCap ? $"{total} / {cap.Value} students" : $"{total} students";
+}
+
+<div class="p-2">
+    <!-- Header -->
+    <div class="d-flex align-items-start justify-content-between">
+        <div>
+            <h5 class="mb-1 text-slate-900">
+                @Model.Name
+                <small class="text-slate-600">(@Model.ClassCode)</small>
+            </h5>
+            <div class="text-slate-600 mb-1">
+                <strong>Subject:</strong> @(string.IsNullOrWhiteSpace(Model.Subject) ? "—" : Model.Subject)
+            </div>
+            <div class="text-slate-600 small mb-2">
+                <strong>Created:</strong> @Model.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+            </div>
+        </div>
+
+        <!-- Copy code -->
+        <button type="button" class="btn btn-light btn-sm"
+                title="Copy class code"
+                onclick="navigator.clipboard?.writeText('@Model.ClassCode')">
+            <i class="bi bi-clipboard"></i> Copy code
+        </button>
+    </div>
+
+    <!-- Teacher -->
     <div class="d-flex align-items-center gap-2 mb-2">
         <strong>Teacher:</strong>
-        <img src="@(Model.Teacher?.AvatarUrl ?? "https://via.placeholder.com/72?text=👩‍🏫")"
-             class="avatar-sm" alt="teacher" />
+        <img src="@(string.IsNullOrWhiteSpace(Model.Teacher?.AvatarUrl) ? Url.Content("~/images/avatar-default.png") : Model.Teacher!.AvatarUrl)"
+             class="avatar-sm"
+             alt="teacher"
+             onerror="this.onerror=null;this.src='@Url.Content("~/images/avatar-default.png")';" />
         <span>@(Model.Teacher?.FullName ?? "Unknown")</span>
+    </div>
+
+    <!-- Capacity -->
+    <div class="mb-2">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="text-slate-600">
+                <strong>Capacity:</strong> @(hasCap? capText : $"{capText} • No limit")
+            </div>
+            @if (hasCap)
+            {
+                if (full)
+                {
+                    <span class="badge bg-danger">Full</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">@((cap!.Value - total)) left</span>
+                }
+            }
+        </div>
+
+        @if (hasCap)
+        {
+            var pct = Math.Clamp((int)Math.Round((double)total / Math.Max(1, cap!.Value) * 100), 0, 100);
+            <div class="progress mt-1" style="height:6px;">
+                <div class="progress-bar @(full ? "bg-danger" : "bg-success")" role="progressbar" style="width:@pct%"></div>
+            </div>
+        }
     </div>
 
     <hr class="my-3" />
 
+    <!-- Actions -->
     <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-grad-blue me-2" asp-action="Roster" asp-route-id="@Model.Id">Student List</a>
-        <a class="btn btn-grad-green me-2" asp-controller="Materials" asp-action="Index" asp-route-classId="@Model.Id">Materials</a>
+        <a class="btn btn-grad-blue" asp-action="Roster" asp-route-id="@Model.Id">
+            <i class="bi bi-people"></i> Student List
+        </a>
+
+        <a class="btn btn-grad-green" asp-controller="Materials" asp-action="Index" asp-route-classId="@Model.Id">
+            <i class="bi bi-files"></i> Materials
+        </a>
+
         <a class="btn btn-grad-amber"
            asp-controller="Assignment"
            asp-action="Teacher"
            asp-route-classId="@Model.Id">
-            <i class="bi bi-pencil-square"></i> Assignments
+            <i class="bi bi-clipboard2-check"></i> Assignments
         </a>
 
+        <!-- NEW: Edit class with color -->
+        <a class="btn btn-grad-indigo"
+           asp-controller="Classrooms"
+           asp-action="Edit"
+           asp-route-id="@Model.Id">
+            <i class="bi bi-pencil-square"></i> Edit Class
+        </a>
 
         <button type="button"
-                class="btn btn-grad-rose js-delete-class"
+                class="btn btn-grad-rose ms-auto js-delete-class"
                 data-delete-url="@Url.Action("Delete", "Classrooms", new { id = Model.Id })"
                 data-class-name="@Model.Name"
                 data-class-code="@Model.ClassCode">
-            Delete
+            <i class="bi bi-trash"></i> Delete
         </button>
     </div>
 </div>
+
+<style>
+    .btn-grad-blue {
+        background: linear-gradient(90deg,#3b82f6,#22d3ee);
+        color: #fff;
+        border: 0
+    }
+
+        .btn-grad-blue:hover {
+            filter: brightness(.95);
+            color: #fff
+        }
+
+    .btn-grad-green {
+        background: linear-gradient(90deg,#34d399,#10b981);
+        color: #fff;
+        border: 0
+    }
+
+        .btn-grad-green:hover {
+            filter: brightness(.95);
+            color: #fff
+        }
+
+    .btn-grad-amber {
+        background: linear-gradient(90deg,#f59e0b,#ef4444);
+        color: #fff;
+        border: 0
+    }
+
+        .btn-grad-amber:hover {
+            filter: brightness(.95);
+            color: #fff
+        }
+
+    .btn-grad-indigo {
+        background: linear-gradient(90deg,#6366f1,#8b5cf6);
+        color: #fff;
+        border: 0
+    }
+
+        .btn-grad-indigo:hover {
+            filter: brightness(.95);
+            color: #fff
+        }
+
+    .btn-grad-rose {
+        background: linear-gradient(90deg,#f87171,#ef4444);
+        color: #fff;
+        border: 0
+    }
+
+        .btn-grad-rose:hover {
+            filter: brightness(.95);
+            color: #fff
+        }
+
+    .avatar-sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        object-fit: cover
+    }
+</style>

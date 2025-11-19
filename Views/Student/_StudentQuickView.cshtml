@@ -1,6 +1,15 @@
 ﻿@model ClassQuickViewVM
 @using POETWeb.Models.ViewModels;
 
+@{
+    var total = (int)(ViewBag.EnrolledCount ?? 0);
+    int? cap = null;
+    try { cap = (int?)ViewBag.MaxStudents; } catch { cap = null; }
+    var hasCap = cap.HasValue && cap.Value > 0;
+    var full = hasCap && total >= cap.Value;
+    var pct = hasCap ? Math.Clamp((int)Math.Round((double)total / Math.Max(1, cap.Value) * 100d), 0, 100) : 0;
+}
+
 <div class="qv-stu">
     <div class="mb-2">
         <div class="h6 mb-1">
@@ -15,6 +24,42 @@
                  onerror="this.src='@Url.Content("~/images/avatar-default.png")'">
             <span>@Model.TeacherName</span>
         </div>
+    </div>
+
+    <!-- Capacity (copy from Teacher version) -->
+    <div class="mb-2">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="text-muted">
+                <strong>Capacity:</strong>
+                @if (hasCap)
+                {
+                    @($"{total} / {cap.Value} students")
+                }
+                else
+                {
+                    @($"{total} students • No limit")
+                }
+            </div>
+
+            @if (hasCap)
+            {
+                if (full)
+                {
+                    <span class="badge bg-danger">Full</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">@((cap.Value - total)) left</span>
+                }
+            }
+        </div>
+
+        @if (hasCap)
+        {
+            <div class="progress mt-1" style="height:6px;">
+                <div class="progress-bar @(full ? "bg-danger" : "bg-success")" role="progressbar" style="width:@pct%"></div>
+            </div>
+        }
     </div>
 
     <hr class="my-3" />

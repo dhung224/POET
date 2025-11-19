@@ -333,7 +333,6 @@ namespace POETWeb.Controllers
             var me = await _userManager.GetUserAsync(User);
             if (me == null) return Unauthorized();
 
-            // Chỉ cho xem nếu đã join lớp
             var enrolled = await _db.Enrollments
                 .AsNoTracking()
                 .AnyAsync(e => e.ClassId == id && e.UserId == me.Id);
@@ -346,6 +345,13 @@ namespace POETWeb.Controllers
 
             if (cls == null) return NotFound();
 
+
+            var total = await _db.Enrollments
+                .AsNoTracking()
+                .CountAsync(e => e.ClassId == id);
+            ViewBag.EnrolledCount = total;
+            ViewBag.MaxStudents = cls.MaxStudents;
+
             var vm = new ClassQuickViewVM
             {
                 Id = cls.Id,
@@ -356,7 +362,6 @@ namespace POETWeb.Controllers
                 TeacherAvatar = cls.Teacher?.AvatarUrl
             };
 
-            // Trả đúng tên partial view của cậu
             return PartialView("_StudentQuickView", vm);
         }
 

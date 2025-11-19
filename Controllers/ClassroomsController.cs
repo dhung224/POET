@@ -6,6 +6,7 @@ using POETWeb.Data;
 using POETWeb.Helpers;
 using POETWeb.Models;
 using POETWeb.Models.Domain;
+using POETWeb.Models.ViewModels;
 
 namespace POETWeb.Controllers
 {
@@ -78,6 +79,13 @@ namespace POETWeb.Controllers
 
             ModelState.Remove(nameof(Classroom.ClassCode));
             ModelState.Remove(nameof(Classroom.TeacherId));
+
+            if (model.MaxStudents.HasValue)
+            {
+                if (model.MaxStudents.Value < 1 || model.MaxStudents.Value > 100)
+                    ModelState.AddModelError(nameof(Classroom.MaxStudents), "Max students must be between 1 and 100.");
+            }
+
             if (!ModelState.IsValid) return View(model);
 
             model.TeacherId = me!.Id;
@@ -99,29 +107,61 @@ namespace POETWeb.Controllers
         }
 
         [Authorize(Roles = "Teacher")]
+        [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            var cls = await _db.Classrooms.FindAsync(id);
+            var me = await _userManager.GetUserAsync(User);
+            var cls = await _db.Classrooms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == id && c.TeacherId == me!.Id);
             if (cls == null) return NotFound();
-            await EnsureOwnerAsync(cls.TeacherId);
-            return RedirectToAction("Index", "Teacher");
+
+            ViewBag.CurrentStudents = await _db.Enrollments.CountAsync(e => e.ClassId == id);
+            return View(cls);
         }
 
-        [HttpPost, ValidateAntiForgeryToken]
         [Authorize(Roles = "Teacher")]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Subject")] Classroom input)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, Classroom input)
         {
-            if (!ModelState.IsValid) return View(input);
-
-            var cls = await _db.Classrooms.FirstOrDefaultAsync(c => c.Id == id);
+            var me = await _userManager.GetUserAsync(User);
+            var cls = await _db.Classrooms.FirstOrDefaultAsync(c => c.Id == id && c.TeacherId == me!.Id);
             if (cls == null) return NotFound();
-            await EnsureOwnerAsync(cls.TeacherId);
 
-            cls.Name = input.Name;
-            cls.Subject = input.Subject;
+            var current = await _db.Enrollments.CountAsync(e => e.ClassId == id);
+            ViewBag.CurrentStudents = current;
+
+            ModelState.Remove(nameof(Classroom.ClassCode));
+            ModelState.Remove(nameof(Classroom.TeacherId));
+
+            if (string.IsNullOrWhiteSpace(input.Name))
+                ModelState.AddModelError(nameof(Classroom.Name), "Class name is required.");
+
+            if (input.MaxStudents.HasValue)
+            {
+                if (input.MaxStudents.Value < 1 || input.MaxStudents.Value > 100)
+                    ModelState.AddModelError(nameof(Classroom.MaxStudents), "Max students must be between 1 and 100.");
+                if (input.MaxStudents.Value < current)
+                    ModelState.AddModelError(nameof(Classroom.MaxStudents),
+                        $"Max students cannot be less than current enrolled ({current}).");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                input.ClassCode = cls.ClassCode;
+                input.TeacherId = cls.TeacherId;
+                return View(input);
+            }
+
+            cls.Name = input.Name.Trim();
+            cls.Subject = input.Subject?.Trim();
+            cls.MaxStudents = input.MaxStudents;
             await _db.SaveChangesAsync();
+            TempData["Toast"] = "Class updated.";
             return RedirectToAction("Index", "Teacher");
         }
+
 
         [Authorize(Roles = "Teacher")]
         public async Task<IActionResult> Delete(int id)
@@ -191,8 +231,14 @@ namespace POETWeb.Controllers
         {
             var cls = await _db.Classrooms
                 .Include(c => c.Teacher)
+                .Include(c => c.Enrollments)
                 .FirstOrDefaultAsync(c => c.Id == id);
             if (cls == null) return NotFound();
+
+            ViewBag.EnrolledCount = await _db.Enrollments
+            .Where(e => e.ClassId == id)
+            .CountAsync();
+
             return PartialView("_DetailsModal", cls);
         }
 
@@ -248,6 +294,16 @@ namespace POETWeb.Controllers
             {
                 ModelState.AddModelError(string.Empty, "Class not found.");
                 return View();
+            }
+
+            if (cls.MaxStudents.HasValue)
+            {
+                var current = await _db.Enrollments.CountAsync(e => e.ClassId == cls.Id && e.RoleInClass == "Student");
+                if (current >= cls.MaxStudents.Value)
+                {
+                    ModelState.AddModelError(string.Empty, "This class has reached its maximum capacity.");
+                    return View();
+                }
             }
 
             bool exists = await _db.Enrollments

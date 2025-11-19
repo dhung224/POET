@@ -30,6 +30,8 @@
         public string? ClassCode { get; set; }
         public string? TeacherName { get; set; }
         public string? TeacherAvatar { get; set; }
+        public int EnrolledCount { get; set; }
+        public int? MaxStudents { get; set; }
     }
 
     public class RosterStudentVM

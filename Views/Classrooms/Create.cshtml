@@ -77,7 +77,22 @@
                             <input asp-for="Subject" class="form-control" id="fldSubject" placeholder="e.g. Tin học" />
                             <span asp-validation-for="Subject" class="text-danger"></span>
                         </div>
-
+                        <div class="mb-3">
+                            <label asp-for="MaxStudents" class="form-label fw-semibold">Student limit</label>
+                            <div class="input-group" style="max-width:280px">
+                                <span class="input-group-text"><i class="bi bi-people"></i></span>
+                                <input asp-for="MaxStudents"
+                                       id="fldMax"
+                                       type="number"
+                                       class="form-control"
+                                       min="1" max="100"
+                                       placeholder="e.g. 30" />
+                            </div>
+                            <small class="text-muted">
+                                Optional. If set, the class can hold at most this many students (Max 100).
+                            </small>
+                            <span asp-validation-for="MaxStudents" class="text-danger"></span>
+                        </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary px-4">Create</button>
                             <a asp-controller="Teacher" asp-action="Index" class="btn btn-light">Cancel</a>
@@ -97,7 +112,7 @@
                             <div class="subject-line text-slate-600">
                                 <span class="fw-semibold">Subject :</span> <span id="prevSubject">—</span>
                             </div>
-                            <div class="text-muted">0 students enrolled</div>
+                            <div id="prevEnroll" class="text-muted">0 students enrolled</div>
                         </div>
                     </div>
 
@@ -127,16 +142,27 @@
                 || document.querySelector('input[name="Name"]');
             const subjInput = document.getElementById('fldSubject')
                 || document.querySelector('input[name="Subject"]');
+            const maxInput  = document.getElementById('fldMax')
+                || document.querySelector('input[name="MaxStudents"]');
 
             const prevTitle = document.getElementById('prevTitle');
             const prevSubject = document.getElementById('prevSubject');
+            const prevEnroll  = document.getElementById('prevEnroll');
 
             const upTitle = () => prevTitle.textContent = (nameInput?.value?.trim() || 'Lớp mới');
             const upSubject = () => prevSubject.textContent = (subjInput?.value?.trim() || '—');
+                    const upEnroll  = () => {
+            const n = (maxInput?.value || '').trim();
+            const num = parseInt(n, 10);
+            prevEnroll.textContent = Number.isFinite(num) && num > 0
+                ? `0 / ${num} students`
+                : '0 students enrolled';
+        };
 
             nameInput?.addEventListener('input', upTitle);
             subjInput?.addEventListener('input', upSubject);
-            upTitle(); upSubject();
+            maxInput ?.addEventListener('input', upEnroll);
+            upTitle(); upSubject(); upEnroll();
         })();
 
             document.addEventListener('DOMContentLoaded', function () {

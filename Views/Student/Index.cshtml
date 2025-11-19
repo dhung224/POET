@@ -168,14 +168,10 @@
                         var coverClass = coverClasses[pick(cls.Id)];
                         <div class="cc-item">
                             <a class="class-card-link js-class-quickview"
-                               asp-controller="Classrooms"
-                               asp-action="Details"
-                               asp-route-id="@cls.Id"
+                               href="#"
                                data-class-id="@cls.Id"
-                               data-url="@Url.Action("DetailsPartial","Classrooms", new { id = cls.Id })"
-                               aria-label="Open class @cls.Title details"
-                               role="button"
-                               tabindex="0">
+                               data-qv-url="@Url.Action("StudentQuickView", "Classrooms", new { id = cls.Id })"
+                               role="button" tabindex="0">
                                 <div class="class-card"
                                      data-title="@cls.Title"
                                      data-subject="@((cls.Subject ?? ""))">
@@ -257,7 +253,7 @@
                                     }
                                     else if (n.Kind == "pending-grade")
                                     {
-                                        @: <span class="fw-semibold">@n.Title</span> needs grading in <span class="fw-semibold">@n.ClassName</span>
+                                        @:Your <span class="fw-semibold">@n.Title</span> await grading <span class="fw-semibold">@n.ClassName</span>
                                     }
                                     else if (n.Kind == "material")
                                     {

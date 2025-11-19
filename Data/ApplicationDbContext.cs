@@ -38,6 +38,7 @@ namespace POETWeb.Data
                 b.Property(c => c.Subject).HasMaxLength(60);
                 b.Property(c => c.ClassCode).HasMaxLength(6).IsRequired();
                 b.HasIndex(c => c.ClassCode).IsUnique();
+                b.Property(c => c.MaxStudents).HasColumnType("int").IsRequired(false);
             });
 
             builder.Entity<Enrollment>(b =>

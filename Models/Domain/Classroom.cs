@@ -30,5 +30,8 @@ namespace POETWeb.Models.Domain
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Enrollment>? Enrollments { get; set; }
+
+        [Range(1, 100)]
+        public int? MaxStudents { get; set; }
     }
 }

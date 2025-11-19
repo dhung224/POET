@@ -1,28 +1,110 @@
 ﻿@model POETWeb.Models.Domain.Classroom
 @{
-    ViewData["Title"] = "Edit Class";
+    ViewData["Title"] = "Edit Classroom";
+    var current = (int)(ViewBag.CurrentStudents ?? 0);
 }
-<h3>Edit class</h3>
-<form asp-action="Edit" method="post">
-    <input type="hidden" asp-for="Id" />
-    <div class="mb-3">
-        <label asp-for="Name" class="form-label"></label>
-        <input asp-for="Name" class="form-control" />
-        <span asp-validation-for="Name" class="text-danger"></span>
+
+<div class="header-gradient mb-0">
+    <div class="container-xxl d-flex align-items-center justify-content-between py-3">
+        <div>
+            <div class="small opacity-75">Teacher • Class</div>
+            <h4 class="mb-0">Edit: @Model.Name</h4>
+        </div>
+        <a class="btn btn-light btn-sm" asp-controller="Teacher" asp-action="Index">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
     </div>
-    <div class="mb-3">
-        <label asp-for="Subject" class="form-label"></label>
-        <input asp-for="Subject" class="form-control" />
-        <span asp-validation-for="Subject" class="text-danger"></span>
+</div>
+
+<div class="container-xxl py-3 section-shell" style="max-width: 900px;">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="mb-2">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            </div>
+
+            <form asp-controller="Classrooms"
+                  asp-action="Edit"
+                  asp-route-id="@Model.Id"
+                  method="post"
+                  class="form-section">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label asp-for="Name" class="form-label fw-semibold">Class name</label>
+                        <input asp-for="Name" class="form-control" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-semibold">Class code</label>
+                        <input class="form-control" value="@Model.ClassCode" disabled />
+                        <div class="form-text">Auto-generated. Not editable.</div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="Subject" class="form-label fw-semibold">Subject</label>
+                        <input asp-for="Subject" class="form-control" />
+                        <span asp-validation-for="Subject" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="MaxStudents" class="form-label fw-semibold">Max students</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-people"></i></span>
+                            <input asp-for="MaxStudents" class="form-control" type="number" min="1" max="100" />
+                        </div>
+                        <div class="form-text">
+                            Current enrolled: <strong>@current</strong>. You cannot set a limit below this number.
+                        </div>
+                        <span asp-validation-for="MaxStudents" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button type="submit" class="btn btn-grad-amber px-4">Save changes</button>
+                    <a asp-controller="Teacher" asp-action="Index" class="btn btn-soft-slate">Back</a>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="mb-3">
-        <label class="form-label">Class Code</label>
-        <input class="form-control" value="@Model.ClassCode" disabled />
-        <div class="form-text">Class code is fixed to avoid breaking join links.</div>
-    </div>
-    <button class="btn btn-primary" type="submit">Save</button>
-    <a class="btn btn-secondary" asp-action="Index">Back</a>
-</form>
+</div>
+
+<style>
+    .header-gradient {
+        background: linear-gradient(90deg,#6366f1,#22d3ee);
+        color: #fff;
+    }
+
+    .section-shell {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .btn-soft-slate {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        color: #1f2937;
+    }
+
+        .btn-soft-slate:hover {
+            background: #eef2f7;
+        }
+
+    .btn-grad-amber {
+        background: linear-gradient(90deg,#f59e0b,#ef4444);
+        color: #fff;
+        border: none;
+    }
+
+        .btn-grad-amber:hover {
+            filter: brightness(.95);
+            color: #fff;
+        }
+</style>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }
