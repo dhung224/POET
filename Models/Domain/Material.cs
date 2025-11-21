@@ -1,4 +1,4 @@
-﻿
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -29,7 +29,9 @@ namespace POETWeb.Models.Domain
 
         // Nếu dùng link ngoài (YouTube, link thường…)
         [StringLength(1000)]
+        [Url(ErrorMessage = "URL Invalid")] 
         public string? ExternalUrl { get; set; }
+
         [StringLength(50)]
         public string? Provider { get; set; }   // "YouTube", "Link"
         [StringLength(20)]
